@@ -93,6 +93,10 @@
 
   .table-wrap{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;margin-bottom:26px;}
   .table-wrap.scroll-list{max-height:340px;overflow-y:auto;}
+  /* border-collapse:collapse rompe position:sticky en los th — este modo lo evita
+     sin que se note visualmente (los bordes ya los dan los border-bottom de las celdas) */
+  .scroll-list table{border-collapse:separate;border-spacing:0;}
+  .scroll-list thead th{position:sticky;top:0;z-index:1;}
   table{width:100%;border-collapse:collapse;}
   th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);padding:12px 16px;background:#FAFAF7;border-bottom:1px solid var(--line);font-weight:600;}
   td{padding:12px 16px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle;}
@@ -328,7 +332,8 @@ const I18N = {
     tab_dashboard:'Dashboard', tab_inventory:'Inventario', tab_receipts:'Recibos', tab_menu:'Menú',
     dash_spending_of:'Gasto de', dash_see_all_months:'Ver todos los meses',
     dash_scan_receipt:'Escanear recibo', dash_inventory_title:'Inventario',
-    dash_inventory_sub:'Ingredientes y su costo actual por unidad', price_updated:'precio actualizado',
+    dash_inventory_sub:'Precio por unidad en cada una de tus últimas 3 compras', price_updated:'precio actualizado',
+    dash_purchase_col:'Compra', dash_no_purchase_yet:'—',
     empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer ingrediente para empezar a costear tus platos.',
     empty_receipts_title:'Aún no hay recibos guardados', empty_receipts_sub:'Cuando escanees uno desde el botón de escanear, aparecerá aquí con la foto original y los productos detectados.',
     empty_dishes_title:'Aún no tienes platos', empty_dishes_sub:'Agrega tu primer plato del menú.',
@@ -404,7 +409,8 @@ const I18N = {
     tab_dashboard:'Dashboard', tab_inventory:'Inventory', tab_receipts:'Receipts', tab_menu:'Menu',
     dash_spending_of:'Spending for', dash_see_all_months:'See all months',
     dash_scan_receipt:'Scan receipt', dash_inventory_title:'Inventory',
-    dash_inventory_sub:'Ingredients and their current cost per unit', price_updated:'price updated',
+    dash_inventory_sub:'Unit price for each of your last 3 purchases', price_updated:'price updated',
+    dash_purchase_col:'Purchase', dash_no_purchase_yet:'—',
     empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first ingredient to start costing your dishes.',
     empty_receipts_title:'No receipts saved yet', empty_receipts_sub:"Once you scan one from the scan button, it'll show up here with the original photo and the detected products.",
     empty_dishes_title:"You don't have any dishes yet", empty_dishes_sub:'Add your first menu dish.',
@@ -570,6 +576,15 @@ function lastPriceChangePct(ingId){
   if(prev<=0) return null;
   return ((latest-prev)/prev)*100;
 }
+/* Las últimas N compras de un ingrediente, de la más vieja a la más nueva de ese grupo
+   (para mostrar en columnas — la última columna siempre es la compra más reciente) */
+function lastNPurchases(ingId, n){
+  return purchases
+    .filter(p=>p.ingId===ingId && p.qty>0)
+    .sort((a,b)=>new Date(b.date)-new Date(a.date))
+    .slice(0, n)
+    .reverse();
+}
 function priceChangeBadge(pct){
   if(pct===null) return '';
   const up = pct>0.5, down = pct<-0.5;
@@ -684,16 +699,32 @@ function dashboardView(){
 
   <div class="section-head"><div><h2>${t('dash_inventory_title')}</h2><p>${t('dash_inventory_sub')}</p></div></div>
   <div class="table-wrap scroll-list">
-    ${inventory.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) :
-    inventory.map(i=>{
-      return `<div class="purchase-row">
-        <div class="purchase-left">
-          <div class="purchase-name">${escapeHtml(i.name)} ${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
-          <div class="purchase-meta">${escapeHtml(i.category)}</div>
-        </div>
-        <div class="purchase-amount">${money(i.costPerUnit)}/${unitLabel(i.unit)}${priceChangeBadge(lastPriceChangePct(i.id))}</div>
-      </div>`;
-    }).join('')}
+    ${inventory.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) : `
+    <table>
+      <thead><tr>
+        <th>${t('th_ingredient')}</th>
+        <th>${t('dash_purchase_col')} 1</th>
+        <th>${t('dash_purchase_col')} 2</th>
+        <th>${t('dash_purchase_col')} 3</th>
+      </tr></thead>
+      <tbody>
+        ${inventory.map(i=>{
+          const last3 = lastNPurchases(i.id, 3); // más vieja a más nueva, hasta 3
+          const cells = new Array(3-last3.length).fill(null).concat(last3);
+          const changePct = lastPriceChangePct(i.id);
+          return `<tr>
+            <td style="font-weight:600;">${escapeHtml(i.name)}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}<div class="cell-sub">${escapeHtml(i.category)}</div></td>
+            ${cells.map((p,idx)=>{
+              if(!p) return `<td class="mono-cell" style="color:var(--ink-soft);">${t('dash_no_purchase_yet')}</td>`;
+              const unitPrice = p.totalPrice/p.qty;
+              const isLast = idx===cells.length-1;
+              return `<td class="mono-cell" style="${isLast?'font-weight:700;':''}">${money(unitPrice)}/${unitLabel(i.unit)}${isLast?priceChangeBadge(changePct):''}<div style="font-size:10px;color:var(--ink-soft);margin-top:2px;font-family:'Inter';">${escapeHtml(p.date)}</div></td>`;
+            }).join('')}
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    `}
   </div>
   `;
 }
