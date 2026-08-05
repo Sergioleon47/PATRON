@@ -1006,6 +1006,76 @@ function fileToBase64(file){
   });
 }
 
+/* Umbral de Otsu: encuentra automáticamente el punto de corte blanco/negro
+   que mejor separa el texto del fondo, sin importar cuán clara o sucia esté la foto. */
+function otsuThreshold(hist, total){
+  let sum = 0;
+  for(let t=0;t<256;t++) sum += t*hist[t];
+  let sumB=0, wB=0, wF=0, varMax=0, threshold=127;
+  for(let t=0;t<256;t++){
+    wB += hist[t];
+    if(wB===0) continue;
+    wF = total - wB;
+    if(wF===0) break;
+    sumB += t*hist[t];
+    const mB = sumB/wB, mF = (sum-sumB)/wF;
+    const between = wB*wF*(mB-mF)*(mB-mF);
+    if(between>varMax){ varMax=between; threshold=t; }
+  }
+  return threshold;
+}
+
+/* Prepara una versión de la foto optimizada específicamente para lectura OCR:
+   más resolución que la copia comprimida que se guarda (ayuda con letra chica),
+   en escala de grises y binarizada con Otsu (mejora mucho la lectura en recibos
+   con poco contraste, sombras o papel térmico gastado). La foto a color que se
+   guarda en el historial no se toca, esto es solo para que Tesseract lea mejor. */
+function prepareOcrImage(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const MAX_SIDE = 2200;
+        let {width, height} = img;
+        if(width > MAX_SIDE || height > MAX_SIDE){
+          const scale = MAX_SIDE / Math.max(width, height);
+          width = Math.round(width*scale);
+          height = Math.round(height*scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        try{
+          const imgData = ctx.getImageData(0, 0, width, height);
+          const d = imgData.data;
+          const total = width*height;
+          const gray = new Uint8ClampedArray(total);
+          const hist = new Array(256).fill(0);
+          for(let i=0, p=0; i<d.length; i+=4, p++){
+            const g = Math.round(0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]);
+            gray[p] = g; hist[g]++;
+          }
+          const threshold = otsuThreshold(hist, total);
+          for(let i=0, p=0; i<d.length; i+=4, p++){
+            const v = gray[p] > threshold ? 255 : 0;
+            d[i]=v; d[i+1]=v; d[i+2]=v;
+          }
+          ctx.putImageData(imgData, 0, 0);
+        }catch(e){
+          // Si el preprocesado falla por lo que sea, seguimos con la imagen a color sin tocar
+        }
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = ()=> reject(new Error('No se pudo procesar la imagen'));
+      img.src = reader.result;
+    };
+    reader.onerror = ()=> reject(new Error('No se pudo leer la imagen'));
+    reader.readAsDataURL(file);
+  });
+}
+
 /* Carga Tesseract.js (OCR gratis en el navegador) solo la primera vez que se usa,
    igual que el patrón ya usado para OCR de recibos en Nudgy. No requiere API key
    ni backend, así que funciona igual en local, en Netlify o donde sea. */
@@ -1037,7 +1107,7 @@ function normalizeReceiptNumber(str){
 }
 
 /* Líneas que casi seguro NO son un producto (totales, impuestos, encabezados, etc.) */
-const RECEIPT_LINE_BLACKLIST = /total|subtotal|iva|impuesto|\btax\b|cambio|efectivo|\bcash\b|change|gracias|thank|factura|invoice|recibo|receipt|ticket|fecha|\bdate\b|tel[eé]fono|\bphone\b|direcci[oó]n|address|cliente|customer|\bcaja\b|cashier|atendido|art[ií]culo|cant\.|\bqty\b|precio|\bprice\b|www\.|http/i;
+const RECEIPT_LINE_BLACKLIST = /\btotal\b|\bsubtotal\b|\biva\b|\bimpuesto\b|\btax\b|\bcambio\b|\befectivo\b|\bcash\b|\bchange\b|\bgracias\b|\bthank|\bfactura\b|\binvoice\b|\brecibo\b|\breceipt\b|\bticket\b|\bfecha\b|\bdate\b|tel[eé]fono|\bphone\b|direcci[oó]n|\baddress\b|\bcliente\b|\bcustomer\b|\bcaja\b|\bcashier\b|\batendido\b|art[ií]culo|cant\.|\bqty\b|\bprecio\b|\bprice\b|www\.|http|\bc[oó]digo\b|\bsku\b|descripci[oó]n|\bdescription\b|\bunidad(es)?\b|\bumd\b|p\.?\s?unit|\bimporte\b|\bneto\b|\bbruto\b|\bfolio\b|\borden\b|\border\b|\bpo#|n[°º]\s?\d|\bref(erencia)?\b|\bvendedor\b|\bseller\b|\brfc\b|\bnit\b|\bruc\b|p[aá]gina|page \d|\bfirma\b|\bsignature\b|\bcopia\b|\boriginal\b/i;
 
 /* Parseo heurístico de recibo a partir del texto plano que devuelve el OCR.
    No es tan preciso como una IA que "ve" la imagen — por eso cada producto
@@ -1068,6 +1138,7 @@ function parseReceiptText(text){
 
   const priceAtEnd = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*$/;
   const leadingQty = /^(\d{1,3}(?:[.,]\d{1,3})?)\s*[xX]?\s+/;
+  const bareNumberTok = /^\d+(?:[.,]\d+)?$/;
   const items = [];
   for(const line of lines){
     if(RECEIPT_LINE_BLACKLIST.test(line)) continue;
@@ -1077,13 +1148,44 @@ function parseReceiptText(text){
     if(!price || price<=0 || price>100000) continue;
     let rest = line.slice(0, priceMatch.index).trim();
     rest = rest.replace(/[.\-·•]{2,}/g,' ').replace(/\s{2,}/g,' ').trim();
-    let qty = 1;
-    const qtyMatch = rest.match(leadingQty);
-    if(qtyMatch){
-      const q = normalizeReceiptNumber(qtyMatch[1]);
-      if(q>0 && q<1000){ qty = q; rest = rest.slice(qtyMatch[0].length).trim(); }
+    const tokens = rest.split(' ');
+
+    // Facturas de proveedor suelen traer columnas "cant" y "precio unitario" en medio
+    // de la línea (no al principio). Las encontramos verificando cant × precio_unit ≈ total
+    // — así no confundimos la cantidad real con un código de producto u otro número suelto.
+    let qty = 1, qtyIdx = -1, priceIdx = -1;
+    const numericIdxs = [];
+    tokens.forEach((tok,idx)=>{ if(bareNumberTok.test(tok)) numericIdxs.push(idx); });
+    outer:
+    for(const qi of numericIdxs){
+      for(const pi of numericIdxs){
+        if(qi===pi) continue;
+        const qv = normalizeReceiptNumber(tokens[qi]);
+        const pv = normalizeReceiptNumber(tokens[pi]);
+        if(qv<=0 || qv>=1000 || pv<=0) continue;
+        if(Math.abs(qv*pv - price) <= Math.max(0.02, price*0.01)){
+          qty = qv; qtyIdx = qi; priceIdx = pi;
+          break outer;
+        }
+      }
     }
-    const name = rest.replace(/^[^a-zA-ZñÑáéíóúÁÉÍÓÚ]*/,'').trim();
+
+    let nameTokens;
+    if(qtyIdx>-1){
+      nameTokens = tokens.filter((_,idx)=> idx!==qtyIdx && idx!==priceIdx);
+    } else {
+      // No se pudo confirmar una columna de cantidad — probamos el patrón simple
+      // "2 x Producto" al inicio, y si tampoco hay eso, cantidad queda en 1
+      const qtyMatch = rest.match(leadingQty);
+      if(qtyMatch){
+        const q = normalizeReceiptNumber(qtyMatch[1]);
+        if(q>0 && q<1000) qty = q;
+      }
+      nameTokens = tokens.filter(tok=>!bareNumberTok.test(tok));
+    }
+    nameTokens = nameTokens.filter(tok=>!/^[xX]$/.test(tok));
+
+    const name = nameTokens.join(' ').replace(/^[^a-zA-ZñÑáéíóúÁÉÍÓÚ]*/,'').trim();
     if(name.length<2) continue;
     items.push({name, quantity:qty, unit:'unidad', total_price:price});
     if(items.length>=40) break;
@@ -1102,10 +1204,15 @@ async function processReceiptImage(file){
     render();
 
     await loadTesseract();
-    const dataUrl = 'data:'+scanImageMediaType+';base64,'+scanImageBase64;
+    let ocrDataUrl;
+    try{
+      ocrDataUrl = await prepareOcrImage(file);
+    }catch(prepErr){
+      ocrDataUrl = 'data:'+scanImageMediaType+';base64,'+scanImageBase64;
+    }
     let ocrResult;
     try{
-      ocrResult = await Tesseract.recognize(dataUrl, 'spa+eng');
+      ocrResult = await Tesseract.recognize(ocrDataUrl, 'spa+eng');
     }catch(ocrErr){
       throw new Error('No se pudo leer el texto de la imagen — intenta con una foto más clara y bien iluminada');
     }
