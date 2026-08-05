@@ -308,8 +308,7 @@ let draftFoodCostWarning = foodCostWarningPct;
 
 /* Estado del escaneo de recibo */
 let scanState = 'idle'; // idle | preview | loading | matched | error
-let scanImageBase64 = null;
-let scanImageMediaType = null;
+let scanImages = []; // [{base64, mediaType}] — una o varias páginas del mismo recibo
 let scanExtracted = []; // [{name, qty, unit, totalPrice, matchedIngId(new/null), supplier, date}]
 let scanErrorMsg = '';
 let scanSupplier = '';
@@ -385,7 +384,8 @@ const I18N = {
     all_ings_in_recipe:'Todos los ingredientes del inventario ya están en esta receta.', btn_save_dish:'Guardar plato',
     scan_title:'Escanear recibo', scan_sub:'Sube una foto del recibo — el sistema extrae los productos y precios, tú confirmas antes de aplicar',
     scan_tap_photo:'Toca para tomar o subir una foto', scan_jpg_png:'JPG o PNG, recibo de proveedor',
-    scan_reading:'Leyendo el texto del recibo (puede tardar unos segundos)...',
+    scan_reading:'Leyendo el recibo con IA (puede tardar unos segundos)...',
+    scan_page:'Página', scan_add_page:'Agregar otra página', scan_read_btn:'Leer recibo',
     scan_tip_manual:'Tip: si la conexión falla en vivo, puedes registrar la compra manualmente y seguir con la demo.',
     scan_dup_confirm_label:'Sí, es una compra distinta — aplicar de todos modos',
     lbl_detected_products:'Productos detectados — confirma o corrige cada uno', ph_product_name:'Nombre del producto',
@@ -462,7 +462,8 @@ const I18N = {
     all_ings_in_recipe:'All ingredients in your inventory are already in this recipe.', btn_save_dish:'Save dish',
     scan_title:'Scan receipt', scan_sub:'Upload a photo of the receipt — the system extracts products and prices, you confirm before applying',
     scan_tap_photo:'Tap to take or upload a photo', scan_jpg_png:'JPG or PNG, supplier receipt',
-    scan_reading:'Reading the receipt text (this can take a few seconds)...',
+    scan_reading:'Reading the receipt with AI (this can take a few seconds)...',
+    scan_page:'Page', scan_add_page:'Add another page', scan_read_btn:'Read receipt',
     scan_tip_manual:"Tip: if the connection fails live, you can log the purchase manually and keep going.",
     scan_dup_confirm_label:"Yes, it's a different purchase — apply anyway",
     lbl_detected_products:'Detected products — confirm or correct each one', ph_product_name:'Product name',
@@ -1045,7 +1046,9 @@ function receiptDetailModal(){
     <div class="modal wide">
       <h3>${escapeHtml(r.supplier)||t('no_supplier_name')}</h3>
       <div class="sub">${r.date} &middot; ${t('rd_scanned_on')} ${new Date(r.createdAt).toLocaleDateString()}</div>
-      <img class="receipt-preview" src="data:${r.mediaType};base64,${r.imageBase64}">
+      ${(r.images && r.images.length)
+        ? r.images.map(img=>`<img class="receipt-preview" src="data:${img.mediaType};base64,${img.base64}" style="margin-bottom:6px;">`).join('')
+        : (r.imageBase64 ? `<img class="receipt-preview" src="data:${r.mediaType};base64,${r.imageBase64}">` : '')}
       <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;">${t('rd_applied_label')}</label>
       ${r.appliedItems.map(it=>`
         <div class="matched-item" style="cursor:default;">
@@ -1251,7 +1254,7 @@ function dishModal(){
 
 /* ================= MODAL: ESCANEAR RECIBO (lectura con Claude API vía Netlify Function) ================= */
 function openScanModal(){
-  scanState='idle'; scanImageBase64=null; scanImageMediaType=null; scanExtracted=[]; scanErrorMsg='';
+  scanState='idle'; scanImages=[]; scanExtracted=[]; scanErrorMsg='';
   scanSupplier=''; scanDate=localDateStr();
   scanDuplicateOf=null; scanDuplicateConfirmed=false;
   showScanModal=true; render();
@@ -1265,16 +1268,30 @@ function scanModal(){
       <h3>${t('scan_title')}</h3>
       <div class="sub">${t('scan_sub')}</div>
 
-      ${scanState==='idle' ? `
+      ${scanState==='idle' && scanImages.length===0 ? `
         <div class="drop-zone" id="drop-zone">
           <div class="dz-icon">📷</div>
           <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
           <div style="font-size:11.5px;color:var(--ink-soft);margin-top:4px;">${t('scan_jpg_png')}</div>
         </div>
-        <input type="file" id="receipt-file" accept="image/*" capture="environment" style="display:none;">
       ` : ''}
+      <input type="file" id="receipt-file" accept="image/*" capture="environment" style="display:none;">
 
-      ${scanImageBase64 ? `<img class="receipt-preview" src="data:${scanImageMediaType};base64,${scanImageBase64}">` : ''}
+      ${scanState==='idle' && scanImages.length>0 ? `
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+          ${scanImages.map((img,idx)=>`
+            <div style="position:relative;">
+              <img src="data:${img.mediaType};base64,${img.base64}" style="width:92px;height:92px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block;">
+              <button data-remove-scan-page="${idx}" title="${t('btn_remove')||'✕'}" style="position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;background:var(--tomato);color:#fff;border:none;font-size:12px;line-height:1;cursor:pointer;">✕</button>
+              <div style="text-align:center;font-size:10.5px;color:var(--ink-soft);margin-top:3px;">${t('scan_page')} ${idx+1}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <button class="btn btn-ghost btn-sm" id="btn-add-scan-page">+ ${t('scan_add_page')}</button>
+          <button class="btn btn-primary btn-sm" id="btn-process-scan">${t('scan_read_btn')}</button>
+        </div>
+      ` : ''}
 
       ${scanState==='loading' ? `<div class="scan-status"><div class="spinner"></div> ${t('scan_reading')}</div>` : ''}
       ${scanState==='error' ? `<div class="scan-error">⚠ ${scanErrorMsg}</div>` : ''}
@@ -1409,6 +1426,22 @@ function fileToBase64(file){
    "FIN CÓDIGO TESSERACT" más abajo) una vez que confirmes que el
    nuevo flujo funciona bien en producción.
    ================================================================ */
+
+/* Comprime una foto nueva y la agrega como una página más del recibo que se está
+   escaneando. Se puede llamar varias veces (una por página) antes de mandar todo
+   junto a leer con processReceiptImage(). */
+async function addScanPage(file){
+  try{
+    const compressed = await fileToBase64(file);
+    scanImages.push({base64: compressed.base64, mediaType: compressed.mediaType});
+    scanState='idle';
+    render();
+  }catch(err){
+    scanErrorMsg = err.message || t('err_img_process');
+    scanState='error';
+    render();
+  }
+}
 
 /* Umbral de Otsu: encuentra automáticamente el punto de corte blanco/negro
    que mejor separa el texto del fondo, sin importar cuán clara o sucia esté la foto. */
@@ -1644,24 +1677,22 @@ function parseReceiptText(text){
 }
 /* FIN CÓDIGO TESSERACT — todo lo de arriba desde "DESDE AQUÍ" ya no se usa */
 
-async function processReceiptImage(file){
+async function processReceiptImage(){
+  if(scanImages.length===0) return;
   scanState='loading';
   scanErrorMsg='';
+  render();
   try{
-    const compressed = await fileToBase64(file);
-    scanImageBase64 = compressed.base64;
-    scanImageMediaType = compressed.mediaType;
-    render();
-
-    // Manda la foto a nuestra Netlify Function, que a su vez le pregunta a
-    // Claude (con visión) qué dice la factura. La API key vive solo en el
-    // servidor de Netlify, nunca en este archivo ni en el navegador.
+    // Manda TODAS las páginas juntas a nuestra Netlify Function, que a su vez
+    // le pregunta a Claude (con visión) qué dice la factura completa —
+    // combinando las páginas como un solo documento. La API key vive solo en
+    // el servidor de Netlify, nunca en este archivo ni en el navegador.
     let response;
     try{
       response = await fetch('/.netlify/functions/extract-receipt', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ imageBase64: scanImageBase64, mediaType: scanImageMediaType })
+        body: JSON.stringify({ images: scanImages })
       });
     }catch(netErr){
       throw new Error(t('err_ocr_read'));
@@ -1755,7 +1786,7 @@ function applyScanResults(){
 
   if(appliedItems.length>0){
     receipts.push({
-      id:uid('r'), imageBase64:scanImageBase64, mediaType:scanImageMediaType,
+      id:uid('r'), images:scanImages.slice(),
       supplier:scanSupplier||t('fallback_unspecified'), date:scanDate,
       total: appliedItems.reduce((s,i)=>s+i.totalPrice,0),
       itemCount: appliedItems.length, appliedItems, createdAt: new Date().toISOString(),
@@ -2049,13 +2080,24 @@ function attachEvents(){
 
     const dz=document.getElementById('drop-zone');
     const fileInput=document.getElementById('receipt-file');
-    if(dz && fileInput){
-      dz.onclick=()=>fileInput.click();
-      fileInput.onchange=(e)=>{ if(e.target.files[0]) processReceiptImage(e.target.files[0]); };
+    if(fileInput){
+      fileInput.onchange=(e)=>{
+        const f=e.target.files[0];
+        fileInput.value=''; // permite volver a elegir el mismo archivo para otra página si hace falta
+        if(f) addScanPage(f);
+      };
     }
+    if(dz) dz.onclick=()=>fileInput.click();
+    const addPageBtn=document.getElementById('btn-add-scan-page');
+    if(addPageBtn) addPageBtn.onclick=()=>fileInput.click();
+    const processBtn=document.getElementById('btn-process-scan');
+    if(processBtn) processBtn.onclick=()=>processReceiptImage();
+    document.querySelectorAll('[data-remove-scan-page]').forEach(b=>{
+      b.onclick=()=>{ scanImages.splice(parseInt(b.dataset.removeScanPage),1); render(); };
+    });
 
     const retryBtn=document.getElementById('btn-retry-scan');
-    if(retryBtn) retryBtn.onclick=()=>{ scanState='idle'; scanImageBase64=null; render(); };
+    if(retryBtn) retryBtn.onclick=()=>{ scanState='idle'; render(); };
     const fallbackBtn=document.getElementById('btn-fallback-manual');
     if(fallbackBtn) fallbackBtn.onclick=()=>{ closeScanModal(); openPurchaseModal(); };
 
