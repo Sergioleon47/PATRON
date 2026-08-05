@@ -272,6 +272,7 @@ let activeTab = 'dashboard';
 let lastRenderedTab = null;
 let selectedMonth = null; // 'YYYY-MM' or null = todos
 let showItemModal=false, showPurchaseModal=false, showDishModal=false, showScanModal=false, showReceiptDetail=null;
+let showPriceHistoryModal=false, priceHistoryIngId=null;
 let editingItem=null, editingDish=null;
 let draftItem=null, draftDish=null;
 let scanDuplicateOf=null; // receipt existente si se detecta posible duplicado
@@ -419,6 +420,7 @@ function render(){
     ${showDishModal ? dishModal() : ''}
     ${showScanModal ? scanModal() : ''}
     ${showReceiptDetail ? receiptDetailModal() : ''}
+    ${showPriceHistoryModal ? priceHistoryModal() : ''}
     ${showAlertSettingsModal ? alertSettingsModal() : ''}
   `;
   attachEvents();
@@ -506,7 +508,7 @@ function inventarioView(){
             <td style="color:var(--ink-soft);">${escapeHtml(i.category)}</td>
             <td class="mono-cell">${escapeHtml(i.unit)}</td>
             <td class="mono-cell" style="font-weight:700;">${money(i.costPerUnit)}/${escapeHtml(i.unit)}</td>
-            <td><button class="link-btn" data-edit-item="${i.id}">Editar</button><button class="link-btn danger" data-del-item="${i.id}">Eliminar</button></td>
+            <td><button class="link-btn" data-history-item="${i.id}">Historial</button><button class="link-btn" data-edit-item="${i.id}">Editar</button><button class="link-btn danger" data-del-item="${i.id}">Eliminar</button></td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -592,6 +594,99 @@ function recibosView(){
     `).join('')}
   </div>`}
   `;
+}
+
+/* ---------- HISTORIAL DE PRECIO POR INGREDIENTE ---------- */
+function openPriceHistoryModal(ingId){ priceHistoryIngId = ingId; showPriceHistoryModal = true; render(); }
+function closePriceHistoryModal(){ showPriceHistoryModal = false; priceHistoryIngId = null; render(); }
+
+function priceHistoryChart(points){
+  const W = 560, H = 180, padL = 52, padR = 16, padT = 16, padB = 16;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const prices = points.map(p=>p.unitPrice);
+  let min = Math.min(...prices), max = Math.max(...prices);
+  if(min===max){ min = min*0.9; max = (max*1.1)||1; } // evita aplanar la gráfica si el precio nunca cambió
+
+  const xFor = (i)=> padL + (points.length===1 ? innerW/2 : (i/(points.length-1))*innerW);
+  const yFor = (v)=> padT + innerH - ((v-min)/(max-min))*innerH;
+
+  const first = points[0].unitPrice, last = points[points.length-1].unitPrice;
+  const changePct = first>0 ? ((last-first)/first)*100 : 0;
+  const trendColor = changePct>3 ? 'var(--tomato)' : changePct<-3 ? 'var(--basil)' : 'var(--navy)';
+
+  const gridLines = [0,0.5,1].map(f=>{
+    const y = padT + innerH*f;
+    const val = max - (max-min)*f;
+    return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+      <text x="${padL-8}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono">${money(val)}</text>`;
+  }).join('');
+
+  const linePoints = points.map((p,i)=> `${xFor(i).toFixed(1)},${yFor(p.unitPrice).toFixed(1)}`).join(' ');
+
+  const markers = points.map((p,i)=>{
+    const x=xFor(i).toFixed(1), y=yFor(p.unitPrice).toFixed(1);
+    return `<circle cx="${x}" cy="${y}" r="4" fill="${trendColor}" stroke="var(--panel)" stroke-width="2">
+      <title>${escapeHtml(p.date)} · ${escapeHtml(p.supplier)} · ${money(p.unitPrice)}</title>
+    </circle>`;
+  }).join('');
+
+  const lastX = xFor(points.length-1), lastY = yFor(last);
+  const endLabel = `<text x="${lastX.toFixed(1)}" y="${(lastY-10).toFixed(1)}" text-anchor="end" font-size="11" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono">${money(last)}</text>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+    ${gridLines}
+    <polyline points="${linePoints}" fill="none" stroke="${trendColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${markers}
+    ${endLabel}
+  </svg>`;
+}
+
+function priceHistoryModal(){
+  const ing = inventory.find(i=>i.id===priceHistoryIngId);
+  if(!ing) return '';
+  const points = purchases
+    .filter(p=>p.ingId===ing.id && p.qty>0)
+    .map(p=>({date:p.date, supplier:p.supplier, unitPrice:p.totalPrice/p.qty}))
+    .sort((a,b)=> new Date(a.date)-new Date(b.date));
+
+  let summary = '';
+  if(points.length>=2){
+    const first = points[0].unitPrice, last = points[points.length-1].unitPrice;
+    const changePct = first>0 ? ((last-first)/first)*100 : 0;
+    const up = changePct>3, down = changePct<-3;
+    const color = up?'#8C3A29':down?'var(--basil)':'var(--ink-soft)';
+    const bg = up?'var(--tomato-soft)':down?'var(--basil-soft)':'#FAFAF7';
+    const arrow = up?'▲':down?'▼':'→';
+    const phrase = (up||down)
+      ? `${arrow} ${up?'Subió':'Bajó'} ${Math.abs(changePct).toFixed(0)}% desde tu primera compra registrada (${points[0].date})`
+      : `${arrow} Sin cambios importantes desde tu primera compra registrada (${points[0].date})`;
+    summary = `<div class="scan-status" style="background:${bg};color:${color};">${phrase}</div>`;
+  }
+
+  return `
+  <div class="overlay" id="price-history-overlay">
+    <div class="modal wide">
+      <h3>Historial de precio — ${escapeHtml(ing.name)}</h3>
+      <div class="sub">Costo por unidad en cada compra registrada, de más vieja a más reciente</div>
+      ${points.length<2 ? `
+        <div class="helper-note" style="margin:0 0 16px;">Todavía no hay suficiente historial — se necesitan al menos 2 compras de este ingrediente para armar la gráfica. Por ahora tenés ${points.length}.</div>
+      ` : `
+        ${summary}
+        <div style="margin:14px 0;">${priceHistoryChart(points)}</div>
+        <div class="ing-list-mini" style="max-height:160px;">
+          ${points.slice().reverse().map(p=>`
+            <div class="ing-list-mini-item">
+              <span>${escapeHtml(p.date)} &middot; ${escapeHtml(p.supplier)}</span>
+              <span class="mono-cell">${money(p.unitPrice)}/${escapeHtml(ing.unit)}</span>
+            </div>
+          `).join('')}
+        </div>
+      `}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-close-price-history" style="flex:1;">Cerrar</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 function alertSettingsModal(){
@@ -1368,6 +1463,14 @@ function attachEvents(){
     receiptDetailOverlay.addEventListener('mousedown',(e)=>{ if(e.target===receiptDetailOverlay){ showReceiptDetail=null; render(); } });
     const closeBtn=document.getElementById('btn-close-receipt-detail');
     if(closeBtn) closeBtn.onclick=()=>{ showReceiptDetail=null; render(); };
+  }
+
+  document.querySelectorAll('[data-history-item]').forEach(b=>{ b.onclick=()=>openPriceHistoryModal(b.dataset.historyItem); });
+  const priceHistoryOverlay=document.getElementById('price-history-overlay');
+  if(priceHistoryOverlay){
+    priceHistoryOverlay.addEventListener('mousedown',(e)=>{ if(e.target===priceHistoryOverlay) closePriceHistoryModal(); });
+    const closeHistoryBtn=document.getElementById('btn-close-price-history');
+    if(closeHistoryBtn) closeHistoryBtn.onclick=closePriceHistoryModal;
   }
 
   document.querySelectorAll('[data-edit-item]').forEach(b=>{ b.onclick=()=>openItemModal(inventory.find(i=>i.id===b.dataset.editItem)); });
