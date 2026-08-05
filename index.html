@@ -125,6 +125,7 @@
   .alert-banner .count{background:var(--tomato);color:#fff;border-radius:20px;padding:2px 9px;font-size:12px;}
 
   .table-wrap{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;margin-bottom:26px;}
+  .table-wrap.scroll-list{max-height:340px;overflow-y:auto;}
   table{width:100%;border-collapse:collapse;}
   th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);padding:12px 16px;background:#FAFAF7;border-bottom:1px solid var(--line);font-weight:600;}
   td{padding:12px 16px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle;}
@@ -496,7 +497,6 @@ function dashboardView(){
   const viewedSpend = spendForMonth(viewedMonth);
   const currentSpend = spendForMonth(currentMonthKey);
   const isViewingCurrent = viewedMonth === currentMonthKey;
-  const recentPurchases = [...purchases].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
 
   const idx = months.indexOf(viewedMonth);
   const hasOlder = idx>-1 && idx<months.length-1;
@@ -547,17 +547,16 @@ function dashboardView(){
     </div>
   </div>
 
-  <div class="section-head"><div><h2>Compras recientes</h2><p>Últimos registros de compra</p></div></div>
-  <div class="table-wrap">
-    ${recentPurchases.length===0 ? emptyState('🧾','Sin compras aún','Registra una compra escaneando un recibo.') :
-    recentPurchases.map(p=>{
-      const ing = inventory.find(i=>i.id===p.ingId);
+  <div class="section-head"><div><h2>Inventario</h2><p>Ingredientes y su costo actual por unidad</p></div></div>
+  <div class="table-wrap scroll-list">
+    ${inventory.length===0 ? emptyState('📦','Inventario vacío','Agrega tu primer ingrediente para empezar a costear tus platos.') :
+    inventory.map(i=>{
       return `<div class="purchase-row">
         <div class="purchase-left">
-          <div class="purchase-name">${ing?escapeHtml(ing.name):'Ingrediente eliminado'}</div>
-          <div class="purchase-meta">${escapeHtml(p.supplier)} &middot; ${p.date} &middot; ${p.qty} ${ing?escapeHtml(ing.unit):''}</div>
+          <div class="purchase-name">${escapeHtml(i.name)} ${i.updated?'<span class="price-updated">precio actualizado</span>':''}</div>
+          <div class="purchase-meta">${escapeHtml(i.category)}</div>
         </div>
-        <div class="purchase-amount">${money(p.totalPrice)}</div>
+        <div class="purchase-amount">${money(i.costPerUnit)}/${escapeHtml(i.unit)}</div>
       </div>`;
     }).join('')}
   </div>
