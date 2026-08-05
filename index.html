@@ -228,11 +228,14 @@
     .stat-value{font-size:21px;}
     .scan-card{padding:6px 0;}
 
-    /* Tabla de inventario: en vez de forzar scroll horizontal, se esconde la columna
-       Categoría (se muestra como subtítulo bajo el nombre) y la de Unidad (ya va
-       incluida en "Costo/unidad"), y las acciones se apilan si no entran en una línea. */
-    table{table-layout:fixed;}
-    th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3){display:none;}
+    /* Tabla de inventario (pestaña Inventario, no la del Dashboard): en vez de forzar
+       scroll horizontal, se esconde la columna Categoría (se muestra como subtítulo bajo
+       el nombre) y la de Unidad (ya va incluida en "Costo/unidad"), y las acciones se
+       apilan si no entran en una línea. Escopado con :not(.scroll-list) para no afectar
+       la tabla de últimas compras del Dashboard, que tiene sus propias columnas. */
+    .table-wrap:not(.scroll-list) table{table-layout:fixed;}
+    .table-wrap:not(.scroll-list) th:nth-child(2), .table-wrap:not(.scroll-list) td:nth-child(2),
+    .table-wrap:not(.scroll-list) th:nth-child(3), .table-wrap:not(.scroll-list) td:nth-child(3){display:none;}
     th, td{padding:10px 8px;font-size:12.5px;}
     td:last-child{white-space:normal;}
     .cell-sub{display:block;font-size:11px;font-weight:400;color:var(--ink-soft);margin-top:2px;}
@@ -333,7 +336,7 @@ const I18N = {
     dash_spending_of:'Gasto de', dash_see_all_months:'Ver todos los meses',
     dash_scan_receipt:'Escanear recibo', dash_inventory_title:'Inventario',
     dash_inventory_sub:'Precio por unidad en cada una de tus últimas 3 compras', price_updated:'precio actualizado',
-    dash_purchase_col:'Compra', dash_no_purchase_yet:'—',
+    dash_col_2ago:'2 compras atrás', dash_col_prev:'Compra anterior', dash_col_latest:'Última compra', dash_no_purchase_yet:'—',
     empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer ingrediente para empezar a costear tus platos.',
     empty_receipts_title:'Aún no hay recibos guardados', empty_receipts_sub:'Cuando escanees uno desde el botón de escanear, aparecerá aquí con la foto original y los productos detectados.',
     empty_dishes_title:'Aún no tienes platos', empty_dishes_sub:'Agrega tu primer plato del menú.',
@@ -410,7 +413,7 @@ const I18N = {
     dash_spending_of:'Spending for', dash_see_all_months:'See all months',
     dash_scan_receipt:'Scan receipt', dash_inventory_title:'Inventory',
     dash_inventory_sub:'Unit price for each of your last 3 purchases', price_updated:'price updated',
-    dash_purchase_col:'Purchase', dash_no_purchase_yet:'—',
+    dash_col_2ago:'2 purchases ago', dash_col_prev:'Previous purchase', dash_col_latest:'Latest purchase', dash_no_purchase_yet:'—',
     empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first ingredient to start costing your dishes.',
     empty_receipts_title:'No receipts saved yet', empty_receipts_sub:"Once you scan one from the scan button, it'll show up here with the original photo and the detected products.",
     empty_dishes_title:"You don't have any dishes yet", empty_dishes_sub:'Add your first menu dish.',
@@ -703,9 +706,9 @@ function dashboardView(){
     <table>
       <thead><tr>
         <th>${t('th_ingredient')}</th>
-        <th>${t('dash_purchase_col')} 1</th>
-        <th>${t('dash_purchase_col')} 2</th>
-        <th>${t('dash_purchase_col')} 3</th>
+        <th>${t('dash_col_2ago')}</th>
+        <th>${t('dash_col_prev')}</th>
+        <th>${t('dash_col_latest')}</th>
       </tr></thead>
       <tbody>
         ${inventory.map(i=>{
