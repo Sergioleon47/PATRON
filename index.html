@@ -249,13 +249,13 @@
 <script>
 /* ================= ESTADO INICIAL ================= */
 let inventory = [
-  {id:'i1', name:'Chicken breast', category:'Proteins', unit:'lb', costPerUnit:2.125, updated:false},
-  {id:'i2', name:'Medium shrimp', category:'Proteins', unit:'lb', costPerUnit:8.50, updated:false},
-  {id:'i3', name:'Mozzarella cheese', category:'Dairy', unit:'lb', costPerUnit:3.80, updated:false},
-  {id:'i4', name:'Tomato', category:'Vegetables', unit:'lb', costPerUnit:0.90, updated:false},
-  {id:'i5', name:'Olive oil', category:'Pantry', unit:'oz', costPerUnit:0.1875, updated:false},
-  {id:'i6', name:'Flour', category:'Pantry', unit:'lb', costPerUnit:0.56, updated:false},
-  {id:'i7', name:'Flour tortilla', category:'Pantry', unit:'unidad', costPerUnit:0.30, updated:false},
+  {id:'i1', name:'Chicken breast', category:'Proteins', unit:'lb', costPerUnit:2.125, updated:false, qtyOnHand:0},
+  {id:'i2', name:'Medium shrimp', category:'Proteins', unit:'lb', costPerUnit:8.50, updated:false, qtyOnHand:0},
+  {id:'i3', name:'Mozzarella cheese', category:'Dairy', unit:'lb', costPerUnit:3.80, updated:false, qtyOnHand:0},
+  {id:'i4', name:'Tomato', category:'Vegetables', unit:'lb', costPerUnit:0.90, updated:false, qtyOnHand:0},
+  {id:'i5', name:'Olive oil', category:'Pantry', unit:'oz', costPerUnit:0.1875, updated:false, qtyOnHand:0},
+  {id:'i6', name:'Flour', category:'Pantry', unit:'lb', costPerUnit:0.56, updated:false, qtyOnHand:0},
+  {id:'i7', name:'Flour tortilla', category:'Pantry', unit:'unidad', costPerUnit:0.30, updated:false, qtyOnHand:0},
 ];
 
 let purchases = [
@@ -342,7 +342,7 @@ const I18N = {
     empty_dishes_title:'Aún no tienes platos', empty_dishes_sub:'Agrega tu primer plato del menú.',
     inv_title:'Inventario', inv_sub:'Ingredientes y su costo actual por unidad, para calcular el costo de cada plato',
     btn_new_purchase:'+ Registrar compra', btn_new_item:'+ Nuevo ingrediente',
-    th_ingredient:'Ingrediente', th_category:'Categoría', th_unit:'Unidad', th_cost_unit:'Costo/unidad',
+    th_ingredient:'Ingrediente', th_category:'Categoría', th_unit:'Unidad', th_cost_unit:'Costo/unidad', th_stock:'En stock', lbl_stock:'Cantidad en stock',
     btn_history:'Historial', btn_edit:'Editar', btn_delete:'Eliminar',
     rec_title:'Recibos', rec_sub:'Historial de recibos escaneados o subidos — cada uno alimentó el inventario automáticamente',
     no_supplier_name:'Proveedor sin nombre', product_singular:'producto', products_plural:'productos',
@@ -419,7 +419,7 @@ const I18N = {
     empty_dishes_title:"You don't have any dishes yet", empty_dishes_sub:'Add your first menu dish.',
     inv_title:'Inventory', inv_sub:'Ingredients and their current cost per unit, to calculate the cost of each dish',
     btn_new_purchase:'+ Log purchase', btn_new_item:'+ New ingredient',
-    th_ingredient:'Ingredient', th_category:'Category', th_unit:'Unit', th_cost_unit:'Cost/unit',
+    th_ingredient:'Ingredient', th_category:'Category', th_unit:'Unit', th_cost_unit:'Cost/unit', th_stock:'In stock', lbl_stock:'Quantity in stock',
     btn_history:'History', btn_edit:'Edit', btn_delete:'Delete',
     rec_title:'Receipts', rec_sub:'History of scanned or uploaded receipts — each one automatically updated your inventory',
     no_supplier_name:'Unnamed supplier', product_singular:'product', products_plural:'products',
@@ -745,7 +745,7 @@ function inventarioView(){
   ${inventory.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) : `
   <div class="table-wrap">
     <table>
-      <thead><tr><th>${t('th_ingredient')}</th><th>${t('th_category')}</th><th>${t('th_unit')}</th><th>${t('th_cost_unit')}</th><th></th></tr></thead>
+      <thead><tr><th>${t('th_ingredient')}</th><th>${t('th_category')}</th><th>${t('th_unit')}</th><th>${t('th_cost_unit')}</th><th>${t('th_stock')}</th><th></th></tr></thead>
       <tbody>
         ${inventory.map(i=>{
           return `<tr>
@@ -753,6 +753,7 @@ function inventarioView(){
             <td style="color:var(--ink-soft);">${escapeHtml(i.category)}</td>
             <td class="mono-cell">${unitLabel(i.unit)}</td>
             <td class="mono-cell" style="font-weight:700;">${money(i.costPerUnit)}/${unitLabel(i.unit)}${priceChangeBadge(lastPriceChangePct(i.id))}</td>
+            <td class="mono-cell">${i.qtyOnHand||0} ${unitLabel(i.unit)}</td>
             <td><button class="link-btn" data-history-item="${i.id}">${t('btn_history')}</button><button class="link-btn" data-edit-item="${i.id}">${t('btn_edit')}</button><button class="link-btn danger" data-del-item="${i.id}">${t('btn_delete')}</button></td>
           </tr>`;
         }).join('')}
@@ -1161,7 +1162,7 @@ function emptyState(icon,title,sub){
 
 /* ================= MODAL: INGREDIENTE ================= */
 function openItemModal(item){
-  draftItem = item ? {...item} : {id:uid('i'), name:'', category:'', unit:'lb', costPerUnit:''};
+  draftItem = item ? {...item} : {id:uid('i'), name:'', category:'', unit:'lb', costPerUnit:'', qtyOnHand:0};
   editingItem = item ? item.id : null;
   showItemModal = true; render();
 }
@@ -1178,7 +1179,10 @@ function itemModal(){
           <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
         </div>
       </div>
-      <div class="field"><label>${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" value="${draftItem.costPerUnit}" placeholder="0.00"></div>
+      <div class="field-row">
+        <div class="field"><label>${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" value="${draftItem.costPerUnit}" placeholder="0.00"></div>
+        <div class="field"><label>${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" value="${draftItem.qtyOnHand||0}"></div>
+      </div>
       <div class="helper-note">${t('item_helper')}</div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-item">${t('btn_cancel')}</button>
@@ -1719,7 +1723,7 @@ function applyScanResults(){
       // La categoría de un ingrediente nuevo creado desde un escaneo se guarda siempre en inglés
       // ("Uncategorized"), igual que el resto de los datos de producto — así el emparejamiento
       // con el OCR nunca se ve afectado por el idioma en el que esté la interfaz al escanear.
-      const newIng = {id:uid('i'), name:item.rawName, category:'Uncategorized', unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true};
+      const newIng = {id:uid('i'), name:item.rawName, category:'Uncategorized', unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty};
       inventory.push(newIng);
       ingId = newIng.id;
       ingName = newIng.name;
@@ -1728,6 +1732,7 @@ function applyScanResults(){
       if(ing){
         ing.costPerUnit = item.totalPrice/item.qty;
         ing.updated = true;
+        ing.qtyOnHand = (ing.qtyOnHand||0) + item.qty;
         ingName = ing.name;
       }
     }
@@ -1763,6 +1768,12 @@ function deleteReceipt(receiptId){
   if(!confirm(t('confirm_delete_receipt'))) return;
   if(Array.isArray(r.purchaseIds) && r.purchaseIds.length>0){
     const idSet = new Set(r.purchaseIds);
+    // Antes de borrarlas, restamos del stock lo que esas compras habían sumado —
+    // si no, borrar un recibo escaneado por error dejaría cantidades fantasma en inventario
+    purchases.filter(p=>idSet.has(p.id)).forEach(p=>{
+      const ing = inventory.find(i=>i.id===p.ingId);
+      if(ing) ing.qtyOnHand = Math.max(0, (ing.qtyOnHand||0) - p.qty);
+    });
     purchases = purchases.filter(p=>!idSet.has(p.id));
   }
   receipts = receipts.filter(x=>x.id!==receiptId);
@@ -1966,7 +1977,8 @@ function attachEvents(){
         category:document.getElementById('fi-cat').value.trim(),
         unit:document.getElementById('fi-unit').value,
         costPerUnit:parseFloat(document.getElementById('fi-cost').value)||0,
-        updated:draftItem.updated||false
+        updated:draftItem.updated||false,
+        qtyOnHand:parseFloat(document.getElementById('fi-stock').value)||0
       };
       if(editingItem){ const idx=inventory.findIndex(i=>i.id===editingItem); inventory[idx]=item; }
       else inventory.push(item);
@@ -1989,7 +2001,7 @@ function attachEvents(){
       if(!ingId||!qty||!totalPrice) return;
       purchases.push({id:uid('p'), ingId, qty, totalPrice, supplier, date});
       const ing=inventory.find(i=>i.id===ingId);
-      if(ing){ ing.costPerUnit=totalPrice/qty; ing.updated=true; }
+      if(ing){ ing.costPerUnit=totalPrice/qty; ing.updated=true; ing.qtyOnHand=(ing.qtyOnHand||0)+qty; }
       saveState();
       closePurchaseModal();
     };
