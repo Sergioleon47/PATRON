@@ -279,6 +279,7 @@ let selectedStatMonth = null; // 'YYYY-MM' o null = mes actual, para el navegado
 let lastStatMonthRendered = null; // para saber si animar el "flip" al cambiar de mes
 let showItemModal=false, showPurchaseModal=false, showDishModal=false, showScanModal=false, showReceiptDetail=null;
 let showPriceHistoryModal=false, priceHistoryIngId=null;
+let showMonthlySpendModal=false;
 let editingItem=null, editingDish=null;
 let draftItem=null, draftDish=null;
 let scanDuplicateOf=null; // receipt existente si se detecta posible duplicado
@@ -424,6 +425,7 @@ function render(){
     ${showScanModal ? scanModal() : ''}
     ${showReceiptDetail ? receiptDetailModal() : ''}
     ${showPriceHistoryModal ? priceHistoryModal() : ''}
+    ${showMonthlySpendModal ? monthlySpendModal() : ''}
     ${showAlertSettingsModal ? alertSettingsModal() : ''}
   `;
   attachEvents();
@@ -507,6 +509,7 @@ function dashboardView(){
         </div>
       </div>
       ${compareHtml}
+      <button class="link-btn" id="btn-open-monthly-spend" style="padding:0;margin-top:${compareHtml?'2px':'8px'};">Ver todos los meses</button>
     </div>
     <div class="scan-card" id="btn-scan-fab" title="Escanear recibo" style="display:flex;align-items:center;justify-content:center;">
       <div class="scan-fab-mini scan-fab-mini-lg">
@@ -672,6 +675,79 @@ function priceHistoryModal(){
       `}
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-close-price-history" style="flex:1;">Cerrar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- TODOS LOS MESES (comparar gasto mes a mes) ---------- */
+function openMonthlySpendModal(){ showMonthlySpendModal = true; render(); }
+function closeMonthlySpendModal(){ showMonthlySpendModal = false; render(); }
+
+function monthlySpendChart(monthsAsc, currentMonthKey){
+  const W = 560, H = 200, padL = 52, padR = 16, padT = 16, padB = 28;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const spends = monthsAsc.map(m=>spendForMonth(m));
+  const max = Math.max(...spends, 1);
+
+  const n = monthsAsc.length;
+  const slot = innerW / n;
+  const barW = Math.min(slot * 0.55, 24);
+
+  const gridLines = [0,0.5,1].map(f=>{
+    const y = padT + innerH*(1-f);
+    const val = max*f;
+    return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+      <text x="${padL-8}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono">${money(val)}</text>`;
+  }).join('');
+
+  const bars = monthsAsc.map((m,i)=>{
+    const spend = spends[i];
+    const barH = max>0 ? (spend/max)*innerH : 0;
+    const x = padL + i*slot + (slot-barW)/2;
+    const y = padT + innerH - barH;
+    const isCurrent = m===currentMonthKey;
+    const color = isCurrent ? 'var(--navy)' : '#B7C4CC';
+    return `
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(barH,2).toFixed(1)}" rx="4" fill="${color}">
+        <title>${escapeHtml(monthLabel(m))} · ${money(spend)}</title>
+      </rect>
+      <text x="${(x+barW/2).toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono">${money(spend)}</text>
+      <text x="${(x+barW/2).toFixed(1)}" y="${(padT+innerH+16).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono">${escapeHtml(monthLabel(m))}</text>
+    `;
+  }).join('');
+
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+    ${gridLines}
+    ${bars}
+  </svg>`;
+}
+
+function monthlySpendModal(){
+  const months = allMonths();
+  const currentMonthKey = months[0] || new Date().toISOString().slice(0,7);
+  const monthsAsc = [...months].reverse(); // más viejo primero, para leer izquierda a derecha en el tiempo
+
+  return `
+  <div class="overlay" id="monthly-spend-overlay">
+    <div class="modal wide">
+      <h3>Gasto por mes</h3>
+      <div class="sub">Todos los meses con compras registradas, uno al lado del otro</div>
+      ${monthsAsc.length===0 ? `
+        <div class="helper-note" style="margin:0 0 16px;">Todavía no hay compras registradas.</div>
+      ` : `
+        <div style="margin:14px 0;overflow-x:auto;">${monthlySpendChart(monthsAsc, currentMonthKey)}</div>
+        <div class="ing-list-mini" style="max-height:180px;">
+          ${[...monthsAsc].reverse().map(m=>`
+            <div class="ing-list-mini-item">
+              <span>${escapeHtml(monthLabel(m))} ${m===currentMonthKey?'<span class="price-updated">mes actual</span>':''}</span>
+              <span class="mono-cell">${money(spendForMonth(m))}</span>
+            </div>
+          `).join('')}
+        </div>
+      `}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-close-monthly-spend" style="flex:1;">Cerrar</button>
       </div>
     </div>
   </div>`;
@@ -1373,6 +1449,15 @@ function attachEvents(){
   });
   const statMonthResetBtn = document.querySelector('[data-stat-month-reset]');
   if(statMonthResetBtn) statMonthResetBtn.onclick=()=>{ selectedStatMonth=null; render(); };
+
+  const btnOpenMonthlySpend = document.getElementById('btn-open-monthly-spend');
+  if(btnOpenMonthlySpend) btnOpenMonthlySpend.onclick = openMonthlySpendModal;
+  const monthlySpendOverlay = document.getElementById('monthly-spend-overlay');
+  if(monthlySpendOverlay){
+    monthlySpendOverlay.addEventListener('mousedown',(e)=>{ if(e.target===monthlySpendOverlay) closeMonthlySpendModal(); });
+    const closeMonthlySpendBtn = document.getElementById('btn-close-monthly-spend');
+    if(closeMonthlySpendBtn) closeMonthlySpendBtn.onclick = closeMonthlySpendModal;
+  }
 
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
   const btnNewDish=document.getElementById('btn-new-dish'); if(btnNewDish) btnNewDish.onclick=()=>openDishModal(null);
