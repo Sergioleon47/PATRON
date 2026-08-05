@@ -299,8 +299,9 @@ let dishes = [
   {id:'d3', name:'Margherita Pizza 12"', category:'Pizzas', price:13.00, items:[{ingId:'i6', qty:0.4},{ingId:'i3', qty:0.5},{ingId:'i4', qty:0.3},{ingId:'i5', qty:0.3}]},
 ];
 
-let receipts = []; // historial: {id, imageBase64, mediaType, supplier, date, total, itemCount, appliedItems, createdAt}
+let receipts = []; // historial: {id, imageBase64, mediaType, supplier, date, total, itemCount, appliedItems, createdAt, purchaseIds}
 let aliasMap = {}; // nombre normalizado del recibo -> ingredienteId, aprendido de correcciones previas
+let receiptSearchQuery = '';
 
 let activeTab = 'dashboard';
 let lastRenderedTab = null;
@@ -370,6 +371,9 @@ const I18N = {
     btn_history:'Historial', btn_edit:'Editar', btn_delete:'Eliminar',
     rec_title:'Recibos', rec_sub:'Historial de recibos escaneados o subidos — cada uno alimentó el inventario automáticamente',
     no_supplier_name:'Proveedor sin nombre', product_singular:'producto', products_plural:'productos',
+    rec_search_placeholder:'Buscar por proveedor o producto...', rec_no_matches:'Ningún recibo coincide con la búsqueda.',
+    rec_month_total:'Total del mes', btn_print:'Imprimir', btn_share:'Enviar',
+    confirm_delete_receipt:'¿Eliminar este recibo? También se van a quitar las compras que generó del historial y del gasto mensual.',
     ph_title_prefix:'Historial de precio — ', ph_sub:'Costo por unidad en cada compra registrada, de más vieja a más reciente',
     ph_up:'Subió', ph_down:'Bajó', ph_since_first:'desde tu primera compra registrada',
     ph_no_change:'Sin cambios importantes desde tu primera compra registrada',
@@ -440,6 +444,9 @@ const I18N = {
     btn_history:'History', btn_edit:'Edit', btn_delete:'Delete',
     rec_title:'Receipts', rec_sub:'History of scanned or uploaded receipts — each one automatically updated your inventory',
     no_supplier_name:'Unnamed supplier', product_singular:'product', products_plural:'products',
+    rec_search_placeholder:'Search by supplier or product...', rec_no_matches:'No receipts match your search.',
+    rec_month_total:'Month total', btn_print:'Print', btn_share:'Share',
+    confirm_delete_receipt:"Delete this receipt? This will also remove the purchases it created from your history and monthly spend.",
     ph_title_prefix:'Price history — ', ph_sub:'Cost per unit for each recorded purchase, oldest to most recent',
     ph_up:'Went up', ph_down:'Went down', ph_since_first:'since your first recorded purchase',
     ph_no_change:'No significant change since your first recorded purchase',
@@ -776,24 +783,53 @@ function inventarioView(){
 
 /* ---------- RECIBOS (historial) ---------- */
 function recibosView(){
-  const sorted = [...receipts].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const query = receiptSearchQuery.trim().toLowerCase();
+  const filtered = receipts.filter(r=>{
+    if(!query) return true;
+    const supplierMatch = (r.supplier||'').toLowerCase().includes(query);
+    const itemMatch = (r.appliedItems||[]).some(it=>(it.rawName||'').toLowerCase().includes(query));
+    return supplierMatch || itemMatch;
+  });
+  const sorted = [...filtered].sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  // Agrupados por mes (más reciente primero) para que se puedan ubicar rápido en vez
+  // de scrollear una sola lista larga, igual que ya se hace con el gasto mensual.
+  const groups = [];
+  sorted.forEach(r=>{
+    const key = monthKey(r.date);
+    let g = groups.find(g=>g.key===key);
+    if(!g){ g = {key, label: monthLabel(key), receipts: [], total: 0}; groups.push(g); }
+    g.receipts.push(r);
+    g.total += r.total;
+  });
+
   return `
   <div class="section-head">
     <div><h2>${t('rec_title')}</h2><p>${t('rec_sub')}</p></div>
+    <button class="btn btn-primary" id="btn-scan-from-receipts">${t('dash_scan_receipt')}</button>
   </div>
-  ${sorted.length===0 ? emptyState('🧾',t('empty_receipts_title'),t('empty_receipts_sub')) : `
-  <div class="dish-grid">
-    ${sorted.map(r=>`
-      <div class="dish-card" style="cursor:pointer;" data-view-receipt="${r.id}">
-        <img src="data:${r.mediaType};base64,${r.imageBase64}" style="width:100%;height:140px;object-fit:cover;">
-        <div style="padding:14px 16px;">
-          <div style="font-weight:700;font-size:14px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
-          <div style="font-size:11.5px;color:var(--ink-soft);margin:3px 0 8px;">${r.date} &middot; ${r.itemCount} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
-          <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--navy);font-size:15px;">${money(r.total)}</div>
-        </div>
+  ${receipts.length>0 ? `<div class="field" style="max-width:340px;"><input id="receipt-search" type="text" value="${escapeHtml(receiptSearchQuery)}" placeholder="${t('rec_search_placeholder')}"></div>` : ''}
+  ${receipts.length===0 ? emptyState('🧾',t('empty_receipts_title'),t('empty_receipts_sub')) :
+    (sorted.length===0 ? `<div class="helper-note" style="margin:4px 0 0;">${t('rec_no_matches')}</div>` :
+    groups.map(g=>`
+      <div class="section-head" style="margin-top:22px;margin-bottom:10px;">
+        <h3 style="margin:0;font-size:14px;text-transform:capitalize;">${g.label}</h3>
+        <div style="font-size:12px;color:var(--ink-soft);">${t('rec_month_total')}: <strong style="color:var(--ink);">${money(g.total)}</strong></div>
       </div>
-    `).join('')}
-  </div>`}
+      <div class="dish-grid">
+        ${g.receipts.map(r=>`
+          <div class="dish-card" style="cursor:pointer;" data-view-receipt="${r.id}">
+            <img src="data:${r.mediaType};base64,${r.imageBase64}" style="width:100%;height:140px;object-fit:cover;">
+            <div style="padding:14px 16px;">
+              <div style="font-weight:700;font-size:14px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
+              <div style="font-size:11.5px;color:var(--ink-soft);margin:3px 0 8px;">${r.date} &middot; ${r.itemCount} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
+              <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--navy);font-size:15px;">${money(r.total)}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join(''))
+  }
   `;
 }
 
@@ -999,7 +1035,10 @@ function receiptDetailModal(){
         </div>
       `).join('')}
       <div class="modal-actions">
-        <button class="btn btn-ghost" id="btn-close-receipt-detail" style="flex:1;">${t('btn_close')}</button>
+        <button class="btn btn-ghost" id="btn-delete-receipt" style="color:var(--tomato);border-color:#EBC2B8;">${t('btn_delete')}</button>
+        <button class="btn btn-ghost" id="btn-print-receipt">🖨️ ${t('btn_print')}</button>
+        <button class="btn btn-ghost" id="btn-share-receipt">📤 ${t('btn_share')}</button>
+        <button class="btn btn-primary" id="btn-close-receipt-detail">${t('btn_close')}</button>
       </div>
     </div>
   </div>`;
@@ -1614,6 +1653,7 @@ function applyScanResults(){
   if(scanDuplicateOf && !scanDuplicateConfirmed) return; // seguridad extra, el botón ya debería estar deshabilitado
 
   const appliedItems = [];
+  const createdPurchaseIds = [];
   scanExtracted.forEach(item=>{
     if(item.qty<=0 || item.totalPrice<=0 || !item.rawName || !item.rawName.trim()) return;
     let ingId = item.matchedIngId;
@@ -1637,7 +1677,9 @@ function applyScanResults(){
     // Aprende la relación nombre-del-recibo -> ingrediente, para reconocerlo solo la próxima vez
     aliasMap[(item.rawName||'').toLowerCase().trim()] = ingId;
 
-    purchases.push({id:uid('p'), ingId, qty:item.qty, totalPrice:item.totalPrice, supplier:scanSupplier||t('fallback_scanned'), date:scanDate});
+    const purchaseId = uid('p');
+    purchases.push({id:purchaseId, ingId, qty:item.qty, totalPrice:item.totalPrice, supplier:scanSupplier||t('fallback_scanned'), date:scanDate});
+    createdPurchaseIds.push(purchaseId);
     appliedItems.push({rawName:item.rawName, qty:item.qty, unit:item.unit, totalPrice:item.totalPrice, ingName});
   });
 
@@ -1646,11 +1688,90 @@ function applyScanResults(){
       id:uid('r'), imageBase64:scanImageBase64, mediaType:scanImageMediaType,
       supplier:scanSupplier||t('fallback_unspecified'), date:scanDate,
       total: appliedItems.reduce((s,i)=>s+i.totalPrice,0),
-      itemCount: appliedItems.length, appliedItems, createdAt: new Date().toISOString()
+      itemCount: appliedItems.length, appliedItems, createdAt: new Date().toISOString(),
+      purchaseIds: createdPurchaseIds
     });
   }
   saveState();
   closeScanModal();
+}
+
+/* Borra un recibo y las compras que generó (así el gasto mensual y el historial de
+   precio no quedan contaminados con un recibo escaneado por error o duplicado).
+   Los recibos guardados antes de este cambio no tienen purchaseIds — en ese caso
+   solo se borra el registro del recibo, sin tocar compras. */
+function deleteReceipt(receiptId){
+  const r = receipts.find(x=>x.id===receiptId);
+  if(!r) return;
+  if(!confirm(t('confirm_delete_receipt'))) return;
+  if(Array.isArray(r.purchaseIds) && r.purchaseIds.length>0){
+    const idSet = new Set(r.purchaseIds);
+    purchases = purchases.filter(p=>!idSet.has(p.id));
+  }
+  receipts = receipts.filter(x=>x.id!==receiptId);
+  saveState();
+  showReceiptDetail = null;
+  render();
+}
+
+function printReceipt(r){
+  const w = window.open('', '_blank');
+  if(!w) return; // ventana emergente bloqueada por el navegador
+  const rows = r.appliedItems.map(it=>`
+    <tr><td>${escapeHtml(it.rawName)}</td><td>${it.qty} ${escapeHtml(unitLabel(it.unit))}</td><td>${money(it.totalPrice)}</td></tr>
+  `).join('');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(r.supplier)||t('no_supplier_name')}</title>
+    <style>
+      body{font-family:-apple-system,sans-serif;padding:24px;color:#1C1C1E;max-width:480px;margin:0 auto;}
+      h2{margin:0 0 4px;} .meta{color:#5F6368;font-size:13px;margin-bottom:16px;}
+      img{max-width:100%;border-radius:8px;margin-bottom:16px;}
+      table{width:100%;border-collapse:collapse;} th,td{text-align:left;padding:6px 4px;border-bottom:1px solid #ddd;font-size:13px;}
+      tfoot td{font-weight:700;border-bottom:none;padding-top:10px;}
+    </style></head><body>
+    <h2>${escapeHtml(r.supplier)||t('no_supplier_name')}</h2>
+    <div class="meta">${escapeHtml(r.date)}</div>
+    <img src="data:${r.mediaType};base64,${r.imageBase64}">
+    <table>
+      <thead><tr><th>${t('th_ingredient')}</th><th>${t('lbl_qty_bought')}</th><th>${t('th_cost_unit').split('/')[0]}</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td colspan="2">${t('lbl_total_paid')}</td><td>${money(r.total)}</td></tr></tfoot>
+    </table>
+    </body></html>`);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
+function downloadReceiptImage(r){
+  const ext = (r.mediaType||'image/jpeg').includes('png') ? 'png' : 'jpg';
+  const a = document.createElement('a');
+  a.href = `data:${r.mediaType};base64,${r.imageBase64}`;
+  a.download = `receipt-${r.date||'sin-fecha'}.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function shareReceipt(r){
+  const label = `${r.supplier||t('no_supplier_name')} — ${r.date}`;
+  if(navigator.share){
+    try{
+      const res = await fetch(`data:${r.mediaType};base64,${r.imageBase64}`);
+      const blob = await res.blob();
+      const ext = (r.mediaType||'image/jpeg').includes('png') ? 'png' : 'jpg';
+      const file = new File([blob], `receipt-${r.date||'sin-fecha'}.${ext}`, {type:r.mediaType});
+      const shareData = (navigator.canShare && navigator.canShare({files:[file]}))
+        ? {files:[file], title:label, text:label}
+        : {title:label, text:label};
+      await navigator.share(shareData);
+      return;
+    }catch(e){
+      if(e && e.name==='AbortError') return; // el usuario cerró el panel de compartir, no es un error
+    }
+  }
+  // Sin Web Share API disponible (la mayoría de navegadores de escritorio): descarga la foto
+  // para que el usuario la comparta a mano por donde prefiera.
+  downloadReceiptImage(r);
 }
 
 /* ================= EVENTOS ================= */
@@ -1752,7 +1873,27 @@ function attachEvents(){
     receiptDetailOverlay.addEventListener('mousedown',(e)=>{ if(e.target===receiptDetailOverlay){ showReceiptDetail=null; render(); } });
     const closeBtn=document.getElementById('btn-close-receipt-detail');
     if(closeBtn) closeBtn.onclick=()=>{ showReceiptDetail=null; render(); };
+    const currentReceipt = receipts.find(x=>x.id===showReceiptDetail);
+    const deleteBtn=document.getElementById('btn-delete-receipt');
+    if(deleteBtn && currentReceipt) deleteBtn.onclick=()=>deleteReceipt(currentReceipt.id);
+    const printBtn=document.getElementById('btn-print-receipt');
+    if(printBtn && currentReceipt) printBtn.onclick=()=>printReceipt(currentReceipt);
+    const shareBtn=document.getElementById('btn-share-receipt');
+    if(shareBtn && currentReceipt) shareBtn.onclick=()=>shareReceipt(currentReceipt);
   }
+
+  const btnScanFromReceipts=document.getElementById('btn-scan-from-receipts');
+  if(btnScanFromReceipts) btnScanFromReceipts.onclick=openScanModal;
+  const receiptSearchInp=document.getElementById('receipt-search');
+  if(receiptSearchInp) receiptSearchInp.oninput=(e)=>{
+    // render() reemplaza el innerHTML entero (recrea el <input>), así que sin esto
+    // el cursor/foco se perdería en cada letra que se escribe en la búsqueda
+    const cursorPos = e.target.selectionStart;
+    receiptSearchQuery = e.target.value;
+    render();
+    const freshInp = document.getElementById('receipt-search');
+    if(freshInp){ freshInp.focus(); freshInp.setSelectionRange(cursorPos, cursorPos); }
+  };
 
   document.querySelectorAll('[data-history-item]').forEach(b=>{ b.onclick=()=>openPriceHistoryModal(b.dataset.historyItem); });
   const priceHistoryOverlay=document.getElementById('price-history-overlay');
