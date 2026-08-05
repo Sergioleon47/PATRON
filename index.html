@@ -336,8 +336,12 @@ let menuUnlocked = false;
 let pinEntry = '';
 let pinError = '';
 let priceAlertThreshold = 15; // % de aumento que dispara la alerta fuerte al escanear — ajustable por el gerente
+let foodCostTargetPct = 30; // hasta este % de food cost, un plato se marca "rentable" — ajustable, no todos los rubros apuntan al mismo número
+let foodCostWarningPct = 35; // arriba de este % ya se marca "poco rentable"; entre target y este queda "en el límite"
 let showAlertSettingsModal = false;
 let draftThreshold = priceAlertThreshold;
+let draftFoodCostTarget = foodCostTargetPct;
+let draftFoodCostWarning = foodCostWarningPct;
 
 /* Estado del escaneo de recibo */
 let scanState = 'idle'; // idle | preview | loading | matched | error
@@ -384,15 +388,19 @@ const I18N = {
     ph_up:'Subió', ph_down:'Bajó', ph_since_first:'desde tu primera compra registrada',
     ph_no_change:'Sin cambios importantes desde tu primera compra registrada',
     ph_not_enough:'Todavía no hay suficiente historial — se necesitan al menos 2 compras de este ingrediente para armar la gráfica. Por ahora tenés',
+    supplier_compare_title:'Comparar proveedores', cheapest_label:'más barato', avg_price_label:'prom.',
+    supplier_compare_helper:'Según el precio de la última compra a cada proveedor.', ph_full_history_label:'Historial completo',
     btn_cancel:'Cancelar', btn_close:'Cerrar',
     ms_title:'Gasto por mes', ms_sub:'Todos los meses con compras registradas, uno al lado del otro',
     ms_no_purchases:'Todavía no hay compras registradas.', ms_current_month:'mes actual',
-    alert_title:'Alertas de precio', alert_sub:'Define a partir de qué % de aumento quieres que la alerta se marque como fuerte al escanear un recibo',
-    alert_threshold_label:'Umbral de alerta (%)', alert_helper:'Cualquier aumento se marca en amarillo. A partir de este % se marca en rojo, como algo que requiere revisión inmediata.',
+    alert_title:'Configuración', alert_sub:'Ajustá estos números según cómo trabaje tu negocio — no todos los rubros apuntan al mismo food cost ni a la misma sensibilidad de precio',
+    food_cost_target_title:'Objetivo de food cost', food_cost_target_label:'Rentable hasta (%)', food_cost_warning_label:'Poco rentable desde (%)',
+    food_cost_target_helper:'Hasta el primer número, un plato se marca "Rentable". Entre los dos, "En el límite". Arriba del segundo, "Poco rentable".',
+    alert_threshold_title:'Alertas de precio al escanear', alert_threshold_label:'Umbral de alerta (%)', alert_helper:'Cualquier aumento se marca en amarillo. A partir de este % se marca en rojo, como algo que requiere revisión inmediata.',
     btn_save:'Guardar',
     rd_scanned_on:'escaneado el', rd_applied_label:'Productos aplicados al inventario', rd_applied_to:'aplicado a:',
     menu_title:'Menú', menu_sub:'Platos, precios de venta y receta — el costo se calcula con los precios actuales del inventario',
-    btn_alert_settings:'⚙️ Alertas de precio', btn_lock_menu:'🔒 Bloquear', btn_new_dish:'+ Nuevo plato',
+    btn_alert_settings:'⚙️ Configuración', btn_lock_menu:'🔒 Bloquear', btn_new_dish:'+ Nuevo plato',
     no_category:'Sin categoría', lbl_sale_price:'Precio de venta', lbl_avg_cost:'Costo promedio del plato',
     lbl_margin:'Margen', btn_edit_recipe:'Editar receta',
     status_profitable:'Rentable', status_borderline:'En el límite', status_low_margin:'Poco rentable',
@@ -458,15 +466,19 @@ const I18N = {
     ph_up:'Went up', ph_down:'Went down', ph_since_first:'since your first recorded purchase',
     ph_no_change:'No significant change since your first recorded purchase',
     ph_not_enough:'Not enough history yet — you need at least 2 purchases of this ingredient to build the chart. So far you have',
+    supplier_compare_title:'Compare suppliers', cheapest_label:'cheapest', avg_price_label:'avg.',
+    supplier_compare_helper:"Based on the most recent purchase from each supplier.", ph_full_history_label:'Full history',
     btn_cancel:'Cancel', btn_close:'Close',
     ms_title:'Spending by month', ms_sub:'All months with recorded purchases, side by side',
     ms_no_purchases:'No purchases recorded yet.', ms_current_month:'current month',
-    alert_title:'Price alerts', alert_sub:"Set the % increase at which the alert should be flagged as strong when scanning a receipt",
-    alert_threshold_label:'Alert threshold (%)', alert_helper:"Any increase is flagged in yellow. From this % on it's flagged in red, as something that needs immediate review.",
+    alert_title:'Settings', alert_sub:"Adjust these to match how your business runs — not every kind of restaurant targets the same food cost or price sensitivity",
+    food_cost_target_title:'Food cost target', food_cost_target_label:'Profitable up to (%)', food_cost_warning_label:'Low margin from (%)',
+    food_cost_target_helper:'Up to the first number, a dish is marked "Profitable." Between the two, "Borderline." Above the second, "Low margin."',
+    alert_threshold_title:'Price alerts when scanning', alert_threshold_label:'Alert threshold (%)', alert_helper:"Any increase is flagged in yellow. From this % on it's flagged in red, as something that needs immediate review.",
     btn_save:'Save',
     rd_scanned_on:'scanned on', rd_applied_label:'Products applied to inventory', rd_applied_to:'applied to:',
     menu_title:'Menu', menu_sub:'Dishes, selling prices, and recipes — cost is calculated using current inventory prices',
-    btn_alert_settings:'⚙️ Price alerts', btn_lock_menu:'🔒 Lock', btn_new_dish:'+ New dish',
+    btn_alert_settings:'⚙️ Settings', btn_lock_menu:'🔒 Lock', btn_new_dish:'+ New dish',
     no_category:'Uncategorized', lbl_sale_price:'Selling price', lbl_avg_cost:'Average dish cost',
     lbl_margin:'Margin', btn_edit_recipe:'Edit recipe',
     status_profitable:'Profitable', status_borderline:'Borderline', status_low_margin:'Low margin',
@@ -530,7 +542,7 @@ const STORAGE_KEY = 'platocost_data_v1';
 function saveState(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      inventory, purchases, dishes, receipts, aliasMap, priceAlertThreshold
+      inventory, purchases, dishes, receipts, aliasMap, priceAlertThreshold, foodCostTargetPct, foodCostWarningPct
     }));
     return true;
   }catch(e){
@@ -554,6 +566,8 @@ function loadState(){
     if(Array.isArray(data.receipts)) receipts = data.receipts;
     if(data.aliasMap && typeof data.aliasMap==='object') aliasMap = data.aliasMap;
     if(typeof data.priceAlertThreshold==='number') priceAlertThreshold = data.priceAlertThreshold;
+    if(typeof data.foodCostTargetPct==='number') foodCostTargetPct = data.foodCostTargetPct;
+    if(typeof data.foodCostWarningPct==='number') foodCostWarningPct = data.foodCostWarningPct;
   }catch(e){
     console.warn('No se pudo leer localStorage', e);
   }
@@ -623,8 +637,8 @@ function marginComparison(dish){
   return {costNow, costLastMonth, marginNow, marginLastMonth, marginPctNow, marginPctLastMonth, delta: marginNow-marginLastMonth};
 }
 function statusOf(pct){
-  if(pct<=30) return {label:t('status_profitable'), color:'var(--basil)', bg:'var(--basil-soft)'};
-  if(pct<=35) return {label:t('status_borderline'), color:'var(--saffron)', bg:'var(--saffron-soft)'};
+  if(pct<=foodCostTargetPct) return {label:t('status_profitable'), color:'var(--basil)', bg:'var(--basil-soft)'};
+  if(pct<=foodCostWarningPct) return {label:t('status_borderline'), color:'var(--saffron)', bg:'var(--saffron-soft)'};
   return {label:t('status_low_margin'), color:'var(--tomato)', bg:'var(--tomato-soft)'};
 }
 function allMonths(){
@@ -891,6 +905,21 @@ function priceHistoryChart(points){
   </svg>`;
 }
 
+/* Agrupa las compras de un ingrediente por proveedor, para poder comparar quién
+   te está cobrando más caro sin tener que leer todo el historial a mano */
+function supplierComparisonRows(points){
+  const bySupplier = {};
+  points.forEach(p=>{
+    const key = (p.supplier||'').trim() || t('fallback_unspecified');
+    if(!bySupplier[key]) bySupplier[key] = {supplier:key, prices:[], lastDate:'', lastPrice:0};
+    bySupplier[key].prices.push(p.unitPrice);
+    if(p.date >= bySupplier[key].lastDate){ bySupplier[key].lastDate = p.date; bySupplier[key].lastPrice = p.unitPrice; }
+  });
+  return Object.values(bySupplier)
+    .map(s=>({supplier:s.supplier, lastPrice:s.lastPrice, avgPrice:s.prices.reduce((a,b)=>a+b,0)/s.prices.length, count:s.prices.length}))
+    .sort((a,b)=>a.lastPrice-b.lastPrice);
+}
+
 function priceHistoryModal(){
   const ing = inventory.find(i=>i.id===priceHistoryIngId);
   if(!ing) return '';
@@ -898,6 +927,7 @@ function priceHistoryModal(){
     .filter(p=>p.ingId===ing.id && p.qty>0)
     .map(p=>({date:p.date, supplier:p.supplier, unitPrice:p.totalPrice/p.qty}))
     .sort((a,b)=> new Date(a.date)-new Date(b.date));
+  const supplierRows = supplierComparisonRows(points);
 
   let summary = '';
   if(points.length>=2){
@@ -923,6 +953,21 @@ function priceHistoryModal(){
       ` : `
         ${summary}
         <div style="margin:14px 0;">${priceHistoryChart(points)}</div>
+        ${supplierRows.length>=2 ? `
+          <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;">${t('supplier_compare_title')}</label>
+          <div class="ing-list-mini" style="max-height:150px;">
+            ${supplierRows.map((s,idx)=>`
+              <div class="ing-list-mini-item">
+                <span>${escapeHtml(s.supplier)} ${idx===0?`<span class="price-updated">${t('cheapest_label')}</span>`:''}
+                  ${s.count>1?`<div style="font-size:10.5px;color:var(--ink-soft);margin-top:2px;">${t('avg_price_label')} ${money(s.avgPrice)}/${unitLabel(ing.unit)}</div>`:''}
+                </span>
+                <span class="mono-cell">${money(s.lastPrice)}/${unitLabel(ing.unit)}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div class="helper-note" style="margin-top:6px;">${t('supplier_compare_helper')}</div>
+        ` : ''}
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin:14px 0 8px;">${t('ph_full_history_label')}</label>
         <div class="ing-list-mini" style="max-height:160px;">
           ${points.slice().reverse().map(p=>`
             <div class="ing-list-mini-item">
@@ -1018,11 +1063,21 @@ function alertSettingsModal(){
     <div class="modal">
       <h3>${t('alert_title')}</h3>
       <div class="sub">${t('alert_sub')}</div>
+
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;">${t('food_cost_target_title')}</label>
+      <div class="field-row">
+        <div class="field"><label>${t('food_cost_target_label')}</label><input id="food-cost-target-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftFoodCostTarget)}"></div>
+        <div class="field"><label>${t('food_cost_warning_label')}</label><input id="food-cost-warning-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftFoodCostWarning)}"></div>
+      </div>
+      <div class="helper-note">${t('food_cost_target_helper')}</div>
+
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;">${t('alert_threshold_title')}</label>
       <div class="field">
         <label>${t('alert_threshold_label')}</label>
         <input id="alert-threshold-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftThreshold)}">
       </div>
       <div class="helper-note">${t('alert_helper')}</div>
+
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-alert-settings">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-save-alert-settings">${t('btn_save')}</button>
@@ -1869,7 +1924,12 @@ function attachEvents(){
   const btnLockMenu=document.getElementById('btn-lock-menu');
   if(btnLockMenu) btnLockMenu.onclick=()=>{ menuUnlocked=false; pinEntry=''; pinError=''; render(); };
   const btnAlertSettings=document.getElementById('btn-alert-settings');
-  if(btnAlertSettings) btnAlertSettings.onclick=()=>{ draftThreshold=priceAlertThreshold; showAlertSettingsModal=true; render(); };
+  if(btnAlertSettings) btnAlertSettings.onclick=()=>{
+    draftThreshold=priceAlertThreshold;
+    draftFoodCostTarget=foodCostTargetPct;
+    draftFoodCostWarning=foodCostWarningPct;
+    showAlertSettingsModal=true; render();
+  };
 
   const alertSettingsOverlay=document.getElementById('alert-settings-overlay');
   if(alertSettingsOverlay){
@@ -1880,6 +1940,15 @@ function attachEvents(){
     if(saveAlertBtn) saveAlertBtn.onclick=()=>{
       const val=parseFloat(document.getElementById('alert-threshold-input').value);
       if(val>0) priceAlertThreshold=val;
+      let target=parseFloat(document.getElementById('food-cost-target-input').value);
+      let warning=parseFloat(document.getElementById('food-cost-warning-input').value);
+      if(target>0 && target<=100 && warning>0 && warning<=100){
+        // El umbral "poco rentable" siempre tiene que quedar por encima del "rentable",
+        // si no el rango de "en el límite" queda invertido/vacío
+        if(warning<=target) warning = target+1;
+        foodCostTargetPct = target;
+        foodCostWarningPct = warning;
+      }
       saveState();
       showAlertSettingsModal=false; render();
     };
