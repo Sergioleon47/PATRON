@@ -411,6 +411,7 @@ const I18N = {
     lbl_detected_products:'Productos detectados — confirma o corrige cada uno', ph_product_name:'Nombre del producto',
     title_remove_product:'Eliminar este producto',
     scan_unrecognized:'No reconocido en tu inventario — edita el nombre/cantidad o confirma como ingrediente nuevo',
+    scan_qty_unverified:'No se pudo confirmar la cantidad leída del recibo — revísala antes de aplicar',
     opt_add_new_ing:'➕ Agregar como ingrediente nuevo', ph_qty_short:'Cant.', ph_price_short:'Precio',
     scan_no_products_left:'No quedan productos por confirmar. El lector de texto no es perfecto — si no detectó algo, agrégalo a mano.',
     btn_add_product_manually:'+ Agregar producto a mano', btn_confirm_apply:'Confirmar y actualizar inventario',
@@ -480,6 +481,7 @@ const I18N = {
     lbl_detected_products:'Detected products — confirm or correct each one', ph_product_name:'Product name',
     title_remove_product:'Remove this product',
     scan_unrecognized:'Not recognized in your inventory — edit the name/quantity or confirm as a new ingredient',
+    scan_qty_unverified:"Couldn't confirm the quantity read from the receipt — double-check it before applying",
     opt_add_new_ing:'➕ Add as new ingredient', ph_qty_short:'Qty.', ph_price_short:'Price',
     scan_no_products_left:"No products left to confirm. The text reader isn't perfect — if it missed something, add it by hand.",
     btn_add_product_manually:'+ Add product by hand', btn_confirm_apply:'Confirm and update inventory',
@@ -1283,12 +1285,13 @@ function scanModal(){
               </span>
             </div>
             ${isUnrecognized ? `<div style="font-size:11px;font-weight:700;color:#B23A48;margin-bottom:8px;">⚠ ${t('scan_unrecognized')}</div>` : ''}
+            ${!item.qtyVerified ? `<div style="font-size:11px;font-weight:700;color:#8C6D1F;background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_qty_unverified')}</div>` : ''}
             <div class="mi-fields">
               <select data-scan-match="${idx}" style="flex:2;">
                 <option value="__new__" ${item.matchedIngId==='__new__'?'selected':''}>${t('opt_add_new_ing')}</option>
                 ${inventory.map(i=>`<option value="${i.id}" ${item.matchedIngId===i.id?'selected':''}>${escapeHtml(i.name)}</option>`).join('')}
               </select>
-              <input data-scan-qty="${idx}" type="number" step="0.01" value="${item.qty}" style="flex:1;" placeholder="${t('ph_qty_short')}">
+              <input data-scan-qty="${idx}" type="number" step="0.01" value="${item.qty}" style="flex:1;border:${item.qtyVerified?'1px solid var(--line)':'1.5px solid #D9A72E'};" placeholder="${t('ph_qty_short')}">
               <input data-scan-price="${idx}" type="number" step="0.01" value="${item.totalPrice}" style="flex:1;" placeholder="${t('ph_price_short')}">
             </div>
             ${priceAlert}
@@ -1454,10 +1457,18 @@ function parseReceiptText(text){
   if(isoMatch){
     date = isoMatch[0];
   } else if(dmyMatch){
-    let [, d, m, y] = dmyMatch;
+    let [, a, b, y] = dmyMatch;
     if(y.length===2) y = '20'+y;
-    d = d.padStart(2,'0'); m = m.padStart(2,'0');
-    if(+m>=1 && +m<=12 && +d>=1 && +d<=31) date = `${y}-${m}-${d}`;
+    a = a.padStart(2,'0'); b = b.padStart(2,'0');
+    // Los proveedores de este rubro suelen ser distribuidoras de EE.UU. (US Foods, Sysco, etc.),
+    // que imprimen la fecha como MM/DD/AAAA — probamos ese orden primero. Si el primer número
+    // no puede ser un mes válido (ej. "29/07/2026"), lo tratamos como DD/MM en vez de descartar
+    // la fecha del todo.
+    if(+a>=1 && +a<=12 && +b>=1 && +b<=31){
+      date = `${y}-${a}-${b}`;
+    } else if(+b>=1 && +b<=12 && +a>=1 && +a<=31){
+      date = `${y}-${b}-${a}`;
+    }
   }
 
   let supplier = '';
@@ -1503,11 +1514,15 @@ function parseReceiptText(text){
     }
 
     let nameTokens;
+    let qtyVerified = false;
     if(qtyIdx>-1){
+      // La cantidad se cruzó contra el precio (cant × precio_unit ≈ total), así que es confiable
       nameTokens = tokens.filter((_,idx)=> idx!==qtyIdx && idx!==priceIdx);
+      qtyVerified = true;
     } else {
       // No se pudo confirmar una columna de cantidad — probamos el patrón simple
-      // "2 x Producto" al inicio, y si tampoco hay eso, cantidad queda en 1
+      // "2 x Producto" al inicio (leído directo del texto, sin cruce contra el precio,
+      // así que queda marcado como no verificado), y si tampoco hay eso, cantidad queda en 1
       const qtyMatch = rest.match(leadingQty);
       if(qtyMatch){
         const q = normalizeReceiptNumber(qtyMatch[1]);
@@ -1519,7 +1534,7 @@ function parseReceiptText(text){
 
     const name = nameTokens.join(' ').replace(/^[^a-zA-ZñÑáéíóúÁÉÍÓÚ]*/,'').trim();
     if(name.length<2) continue;
-    items.push({name, quantity:qty, unit:'unidad', total_price:price});
+    items.push({name, quantity:qty, unit:'unidad', total_price:price, qtyVerified});
     if(items.length>=40) break;
   }
 
@@ -1572,7 +1587,8 @@ async function processReceiptImage(file){
         qty: typeof it.quantity==='number' ? it.quantity : parseFloat(it.quantity)||0,
         totalPrice: typeof it.total_price==='number' ? it.total_price : parseFloat(it.total_price)||0,
         unit: it.unit || 'unidad',
-        matchedIngId: matchedId
+        matchedIngId: matchedId,
+        qtyVerified: !!it.qtyVerified
       };
     });
 
@@ -1845,7 +1861,7 @@ function attachEvents(){
       sel.onchange=()=>{ scanExtracted[parseInt(sel.dataset.scanMatch)].matchedIngId=sel.value; render(); };
     });
     document.querySelectorAll('[data-scan-qty]').forEach(inp=>{
-      inp.onchange=()=>{ scanExtracted[parseInt(inp.dataset.scanQty)].qty=parseFloat(inp.value)||0; render(); };
+      inp.onchange=()=>{ const it=scanExtracted[parseInt(inp.dataset.scanQty)]; it.qty=parseFloat(inp.value)||0; it.qtyVerified=true; render(); };
     });
     document.querySelectorAll('[data-scan-price]').forEach(inp=>{
       inp.onchange=()=>{ scanExtracted[parseInt(inp.dataset.scanPrice)].totalPrice=parseFloat(inp.value)||0; render(); };
@@ -1855,7 +1871,7 @@ function attachEvents(){
     });
     const addScanItemBtn=document.getElementById('btn-add-scan-item');
     if(addScanItemBtn) addScanItemBtn.onclick=()=>{
-      scanExtracted.push({rawName:'', qty:1, totalPrice:0, unit:'unidad', matchedIngId:'__new__'});
+      scanExtracted.push({rawName:'', qty:1, totalPrice:0, unit:'unidad', matchedIngId:'__new__', qtyVerified:true});
       render();
     };
 
