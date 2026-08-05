@@ -271,13 +271,13 @@
 <script>
 /* ================= ESTADO INICIAL ================= */
 let inventory = [
-  {id:'i1', name:'Pechuga de pollo', category:'Proteínas', unit:'lb', costPerUnit:2.125, updated:false},
-  {id:'i2', name:'Camarón mediano', category:'Proteínas', unit:'lb', costPerUnit:8.50, updated:false},
-  {id:'i3', name:'Queso mozzarella', category:'Lácteos', unit:'lb', costPerUnit:3.80, updated:false},
-  {id:'i4', name:'Tomate', category:'Vegetales', unit:'lb', costPerUnit:0.90, updated:false},
-  {id:'i5', name:'Aceite de oliva', category:'Abarrotes', unit:'oz', costPerUnit:0.1875, updated:false},
-  {id:'i6', name:'Harina', category:'Abarrotes', unit:'lb', costPerUnit:0.56, updated:false},
-  {id:'i7', name:'Tortilla de harina', category:'Abarrotes', unit:'unidad', costPerUnit:0.30, updated:false},
+  {id:'i1', name:'Chicken breast', category:'Proteins', unit:'lb', costPerUnit:2.125, updated:false},
+  {id:'i2', name:'Medium shrimp', category:'Proteins', unit:'lb', costPerUnit:8.50, updated:false},
+  {id:'i3', name:'Mozzarella cheese', category:'Dairy', unit:'lb', costPerUnit:3.80, updated:false},
+  {id:'i4', name:'Tomato', category:'Vegetables', unit:'lb', costPerUnit:0.90, updated:false},
+  {id:'i5', name:'Olive oil', category:'Pantry', unit:'oz', costPerUnit:0.1875, updated:false},
+  {id:'i6', name:'Flour', category:'Pantry', unit:'lb', costPerUnit:0.56, updated:false},
+  {id:'i7', name:'Flour tortilla', category:'Pantry', unit:'unidad', costPerUnit:0.30, updated:false},
 ];
 
 let purchases = [
@@ -290,9 +290,9 @@ let purchases = [
 ];
 
 let dishes = [
-  {id:'d1', name:'Tacos de Camarón (3pz)', category:'Platos fuertes', price:14.50, items:[{ingId:'i2', qty:0.35},{ingId:'i7', qty:3},{ingId:'i4', qty:0.2}]},
-  {id:'d2', name:'Pechuga a la Plancha', category:'Platos fuertes', price:16.00, items:[{ingId:'i1', qty:0.55},{ingId:'i5', qty:0.5}]},
-  {id:'d3', name:'Pizza Margarita 12"', category:'Pizzas', price:13.00, items:[{ingId:'i6', qty:0.4},{ingId:'i3', qty:0.5},{ingId:'i4', qty:0.3},{ingId:'i5', qty:0.3}]},
+  {id:'d1', name:'Shrimp Tacos (3pc)', category:'Entrees', price:14.50, items:[{ingId:'i2', qty:0.35},{ingId:'i7', qty:3},{ingId:'i4', qty:0.2}]},
+  {id:'d2', name:'Grilled Chicken Breast', category:'Entrees', price:16.00, items:[{ingId:'i1', qty:0.55},{ingId:'i5', qty:0.5}]},
+  {id:'d3', name:'Margherita Pizza 12"', category:'Pizzas', price:13.00, items:[{ingId:'i6', qty:0.4},{ingId:'i3', qty:0.5},{ingId:'i4', qty:0.3},{ingId:'i5', qty:0.3}]},
 ];
 
 let receipts = []; // historial: {id, imageBase64, mediaType, supplier, date, total, itemCount, appliedItems, createdAt}
@@ -403,6 +403,24 @@ function costAsOfDate(ingId, dateStr){
 }
 function dishCostAsOf(dish, dateStr){
   return dish.items.reduce((sum,it)=> sum + costAsOfDate(it.ingId, dateStr)*it.qty, 0);
+}
+/* % de cambio del costo del ingrediente vs. su compra anterior (las 2 últimas compras registradas) */
+function lastPriceChangePct(ingId){
+  const relevant = purchases
+    .filter(p=>p.ingId===ingId && p.qty>0)
+    .sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(relevant.length<2) return null;
+  const latest = relevant[0].totalPrice/relevant[0].qty;
+  const prev = relevant[1].totalPrice/relevant[1].qty;
+  if(prev<=0) return null;
+  return ((latest-prev)/prev)*100;
+}
+function priceChangeBadge(pct){
+  if(pct===null) return '';
+  const up = pct>0.5, down = pct<-0.5;
+  const color = up?'var(--tomato)':down?'var(--basil)':'var(--ink-soft)';
+  const arrow = up?'▲':down?'▼':'→';
+  return `<span style="color:${color};font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap;">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`;
 }
 function lastMonthEndDate(){
   const now = new Date();
@@ -556,7 +574,7 @@ function dashboardView(){
           <div class="purchase-name">${escapeHtml(i.name)} ${i.updated?'<span class="price-updated">precio actualizado</span>':''}</div>
           <div class="purchase-meta">${escapeHtml(i.category)}</div>
         </div>
-        <div class="purchase-amount">${money(i.costPerUnit)}/${escapeHtml(i.unit)}</div>
+        <div class="purchase-amount">${money(i.costPerUnit)}/${escapeHtml(i.unit)}${priceChangeBadge(lastPriceChangePct(i.id))}</div>
       </div>`;
     }).join('')}
   </div>
@@ -583,7 +601,7 @@ function inventarioView(){
             <td style="font-weight:600;">${escapeHtml(i.name)} ${i.updated?'<span class="price-updated">precio actualizado</span>':''}<div class="cell-sub">${escapeHtml(i.category)}</div></td>
             <td style="color:var(--ink-soft);">${escapeHtml(i.category)}</td>
             <td class="mono-cell">${escapeHtml(i.unit)}</td>
-            <td class="mono-cell" style="font-weight:700;">${money(i.costPerUnit)}/${escapeHtml(i.unit)}</td>
+            <td class="mono-cell" style="font-weight:700;">${money(i.costPerUnit)}/${escapeHtml(i.unit)}${priceChangeBadge(lastPriceChangePct(i.id))}</td>
             <td><button class="link-btn" data-history-item="${i.id}">Historial</button><button class="link-btn" data-edit-item="${i.id}">Editar</button><button class="link-btn danger" data-del-item="${i.id}">Eliminar</button></td>
           </tr>`;
         }).join('')}
