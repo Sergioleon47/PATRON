@@ -59,6 +59,46 @@
     100%{transform:scale(1.9);opacity:0;}
   }
 
+  /* NAVEGADOR DE MES (tarjeta de gasto) */
+  .month-nav-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+  .month-nav-btn{
+    width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;flex-shrink:0;
+    background:linear-gradient(145deg,#669DF6,var(--navy));color:#fff;
+    font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 6px rgba(66,133,244,0.35);
+    transition:transform .15s ease, opacity .2s ease;
+    position:relative;
+  }
+  .month-nav-btn:disabled{opacity:.25;cursor:not-allowed;box-shadow:none;}
+  .month-nav-btn:not(:disabled):hover{transform:scale(1.1);}
+  .month-nav-btn:not(:disabled):active{transform:scale(0.88);}
+  .month-nav-btn.pop{animation:navPop .5s cubic-bezier(.34,1.56,.64,1);}
+  @keyframes navPop{
+    0%{transform:scale(1) rotate(0deg);}
+    35%{transform:scale(0.78) rotate(var(--pop-rot,-14deg));}
+    70%{transform:scale(1.22) rotate(calc(var(--pop-rot,-14deg) * -0.4));}
+    100%{transform:scale(1) rotate(0deg);}
+  }
+  .month-nav-ring{
+    position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--navy-soft);
+    opacity:0;pointer-events:none;
+  }
+  .month-nav-ring.burst{animation:navRingBurst .55s ease-out;}
+  @keyframes navRingBurst{
+    0%{opacity:.85;transform:scale(1);}
+    100%{opacity:0;transform:scale(2.1);}
+  }
+  .stat-flip-wrap{perspective:600px;}
+  .stat-flip{transform-style:preserve-3d;transform-origin:bottom center;}
+  .stat-flip.playing{animation:statFlip .8s cubic-bezier(0.22,1,0.36,1);}
+  @keyframes statFlip{
+    0%{transform:rotateX(-90deg);opacity:0;}
+    55%{transform:rotateX(12deg);opacity:1;}
+    100%{transform:rotateX(0deg);opacity:1;}
+  }
+  .month-compare{font-size:11.5px;color:var(--ink-soft);margin-top:6px;}
+  .month-compare .link-btn{font-size:11px;padding:0;margin-left:6px;}
+
   .grid-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
   .stat-card{background:var(--panel);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);border:1px solid var(--line);}
   .stat-label{font-size:11.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;font-weight:600;}
@@ -235,6 +275,8 @@ let aliasMap = {}; // nombre normalizado del recibo -> ingredienteId, aprendido 
 
 let activeTab = 'dashboard';
 let lastRenderedTab = null;
+let selectedStatMonth = null; // 'YYYY-MM' o null = mes actual, para el navegador de meses del dashboard
+let lastStatMonthRendered = null; // para saber si animar el "flip" al cambiar de mes
 let showItemModal=false, showPurchaseModal=false, showDishModal=false, showScanModal=false, showReceiptDetail=null;
 let showPriceHistoryModal=false, priceHistoryIngId=null;
 let editingItem=null, editingDish=null;
@@ -420,16 +462,51 @@ function soccerBallSvg(){
 
 function dashboardView(){
   const months = allMonths();
-  const thisMonthKey = months[0] || new Date().toISOString().slice(0,7);
-  const thisMonthSpend = spendForMonth(thisMonthKey);
+  const currentMonthKey = months[0] || new Date().toISOString().slice(0,7);
+  const viewedMonth = selectedStatMonth || currentMonthKey;
+  const viewedSpend = spendForMonth(viewedMonth);
+  const currentSpend = spendForMonth(currentMonthKey);
+  const isViewingCurrent = viewedMonth === currentMonthKey;
   const recentPurchases = [...purchases].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+
+  const idx = months.indexOf(viewedMonth);
+  const hasOlder = idx>-1 && idx<months.length-1;
+  const hasNewer = idx>0;
+
+  const playFlip = viewedMonth !== lastStatMonthRendered;
+  lastStatMonthRendered = viewedMonth;
+
+  let compareHtml = '';
+  if(!isViewingCurrent){
+    const diff = viewedSpend - currentSpend;
+    const pct = currentSpend>0 ? (diff/currentSpend)*100 : (viewedSpend>0 ? 100 : 0);
+    const flat = Math.abs(pct)<0.5;
+    const arrow = flat ? '→' : (pct>0 ? '▲' : '▼');
+    const word = flat ? 'similar a' : (pct>0 ? 'más que' : 'menos que');
+    compareHtml = `<div class="month-compare">${arrow} ${flat?'':Math.abs(pct).toFixed(0)+'% '}${word} ${monthLabel(currentMonthKey)}<button class="link-btn" data-stat-month-reset>Volver al mes actual</button></div>`;
+  }
 
   return `
 
   <div class="grid-summary" style="grid-template-columns:repeat(2,1fr);">
     <div class="stat-card">
-      <div class="stat-label">Gasto de ${monthLabel(thisMonthKey)}</div>
-      <div class="stat-value saffron">${money(thisMonthSpend)}</div>
+      <div class="month-nav-head">
+        <div class="stat-label">Gasto de ${monthLabel(viewedMonth)}</div>
+        <div style="display:flex;gap:6px;">
+          <button class="month-nav-btn" data-stat-month-nav="older" ${!hasOlder?'disabled':''} title="Mes anterior" style="--pop-rot:-14deg;">
+            <span style="position:relative;z-index:2;">‹</span><div class="month-nav-ring"></div>
+          </button>
+          <button class="month-nav-btn" data-stat-month-nav="newer" ${!hasNewer?'disabled':''} title="Mes siguiente" style="--pop-rot:14deg;">
+            <span style="position:relative;z-index:2;">›</span><div class="month-nav-ring"></div>
+          </button>
+        </div>
+      </div>
+      <div class="stat-flip-wrap">
+        <div class="stat-flip ${playFlip?'playing':''}">
+          <div class="stat-value saffron">${money(viewedSpend)}</div>
+        </div>
+      </div>
+      ${compareHtml}
     </div>
     <div class="scan-card" id="btn-scan-fab" title="Escanear recibo" style="display:flex;align-items:center;justify-content:center;">
       <div class="scan-fab-mini scan-fab-mini-lg">
@@ -442,7 +519,7 @@ function dashboardView(){
 
   <div class="section-head"><div><h2>Compras recientes</h2><p>Últimos registros de compra</p></div></div>
   <div class="table-wrap">
-    ${recentPurchases.length===0 ? emptyState('🧾','Sin compras aún','Registra tu primera compra en la pestaña Compras.') :
+    ${recentPurchases.length===0 ? emptyState('🧾','Sin compras aún','Registra una compra escaneando un recibo.') :
     recentPurchases.map(p=>{
       const ing = inventory.find(i=>i.id===p.ingId);
       return `<div class="purchase-row">
@@ -1270,6 +1347,32 @@ function applyScanResults(){
 /* ================= EVENTOS ================= */
 function attachEvents(){
   document.querySelectorAll('.tab').forEach(t=>{ t.onclick=()=>{ activeTab=t.dataset.tab; render(); }; });
+
+  let statMonthNavigating = false;
+  document.querySelectorAll('[data-stat-month-nav]').forEach(btn=>{
+    btn.onclick=()=>{
+      if(statMonthNavigating || btn.disabled) return;
+      const months = allMonths();
+      const currentMonthKey = months[0] || new Date().toISOString().slice(0,7);
+      const viewedMonth = selectedStatMonth || currentMonthKey;
+      const idx = months.indexOf(viewedMonth);
+      if(idx===-1) return;
+      const newIdx = btn.dataset.statMonthNav==='older' ? idx+1 : idx-1;
+      if(newIdx<0 || newIdx>=months.length) return;
+
+      statMonthNavigating = true;
+      btn.classList.add('pop');
+      const ring = btn.querySelector('.month-nav-ring');
+      if(ring) ring.classList.add('burst');
+      setTimeout(()=>{
+        selectedStatMonth = months[newIdx]===currentMonthKey ? null : months[newIdx];
+        statMonthNavigating = false;
+        render();
+      }, 480);
+    };
+  });
+  const statMonthResetBtn = document.querySelector('[data-stat-month-reset]');
+  if(statMonthResetBtn) statMonthResetBtn.onclick=()=>{ selectedStatMonth=null; render(); };
 
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
   const btnNewDish=document.getElementById('btn-new-dish'); if(btnNewDish) btnNewDish.onclick=()=>openDishModal(null);
