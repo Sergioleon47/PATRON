@@ -9,8 +9,9 @@
 <style>
   :root{
     --bg:#F1F3F4; --panel:#FFFFFF; --ink:#202124; --ink-soft:#5F6368; --line:#DADCE0;
-    --navy:#4285F4; --navy-soft:#669DF6; --tomato:#EA4335; --saffron:#FBBC05; --basil:#34A853;
-    --basil-soft:#E6F4EA; --tomato-soft:#FCE8E6; --saffron-soft:#FEF7E0;
+    /* Paleta bandera de Italia: verde y rojo bandiera como acentos, blanco/gris neutro para superficies y texto */
+    --navy:#008C45; --navy-soft:#2FAE68; --tomato:#CD212A; --saffron:#D9605A; --basil:#008C45;
+    --basil-soft:#E3F3E9; --tomato-soft:#FBE4E4; --saffron-soft:#FCEBE9;
     --radius:14px; --shadow:0 1px 2px rgba(32,33,36,0.08), 0 8px 24px rgba(32,33,36,0.08);
   }
   *{box-sizing:border-box;}
@@ -32,7 +33,7 @@
     width:42px;height:42px;border-radius:11px;
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.10) 0 5px, transparent 5px 10px),
-      linear-gradient(145deg,#669DF6,var(--navy));
+      linear-gradient(145deg,#2FAE68,var(--navy));
     display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:25px;box-shadow:var(--shadow);
   }
   .brand-name{font-size:20px;font-weight:700;}
@@ -50,7 +51,7 @@
   .scan-card:active .scan-fab-mini{transform:scale(0.94);}
   .scan-fab-mini svg{position:relative;z-index:2;width:100%;height:100%;filter:drop-shadow(0 2px 5px rgba(32,33,36,0.25));}
   .scan-fab-ring{
-    position:absolute;inset:0;border-radius:50%;background:rgba(52,168,83,0.35);
+    position:absolute;inset:0;border-radius:50%;background:rgba(0,140,69,0.35);
     animation:fabPulse 1.8s cubic-bezier(0.3,0.6,0.4,1) infinite; z-index:1;
   }
   .scan-fab-ring.delay{animation-delay:.6s;}
@@ -63,7 +64,7 @@
   .month-nav-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
   .month-nav-btn{
     width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;flex-shrink:0;
-    background:linear-gradient(145deg,#669DF6,var(--navy));color:#fff;
+    background:linear-gradient(145deg,#2FAE68,var(--navy));color:#fff;
     font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;
     box-shadow:0 2px 6px rgba(66,133,244,0.35);
     transition:transform .15s ease, opacity .2s ease;
@@ -103,7 +104,7 @@
   .stat-card{background:var(--panel);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);border:1px solid var(--line);}
   .stat-label{font-size:11.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;font-weight:600;}
   .stat-value{font-size:26px;font-weight:700;margin-top:6px;font-family:'Space Grotesk';}
-  .stat-value.tomato{color:var(--tomato);} .stat-value.basil{color:var(--basil);} .stat-value.navy{color:var(--navy);} .stat-value.saffron{color:#B8860B;}
+  .stat-value.tomato{color:var(--tomato);} .stat-value.basil{color:var(--basil);} .stat-value.navy{color:var(--navy);} .stat-value.saffron{color:var(--saffron);}
   .stat-hint{font-size:11px;color:var(--ink-soft);margin-top:4px;}
 
   .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
@@ -220,8 +221,8 @@
   .drop-zone:hover{border-color:var(--navy);}
   .drop-zone .dz-icon{font-size:28px;margin-bottom:6px;}
   .receipt-preview{width:100%;max-height:220px;object-fit:contain;border-radius:10px;margin-bottom:14px;border:1px solid var(--line);}
-  .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:#8A6100;margin-bottom:14px;}
-  .spinner{width:16px;height:16px;border:2.5px solid #E8CB8C;border-top-color:#8A6100;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+  .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:#8C3A29;margin-bottom:14px;}
+  .spinner{width:16px;height:16px;border:2.5px solid #F0BAB5;border-top-color:#8C3A29;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
   @keyframes spin{to{transform:rotate(360deg);}}
   .scan-error{background:var(--tomato-soft);color:#8C3A29;padding:12px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;}
 
@@ -392,7 +393,7 @@ function marginComparison(dish){
 }
 function statusOf(pct){
   if(pct<=30) return {label:'Rentable', color:'var(--basil)', bg:'var(--basil-soft)'};
-  if(pct<=35) return {label:'En el límite', color:'#B8860B', bg:'var(--saffron-soft)'};
+  if(pct<=35) return {label:'En el límite', color:'var(--saffron)', bg:'var(--saffron-soft)'};
   return {label:'Poco rentable', color:'var(--tomato)', bg:'var(--tomato-soft)'};
 }
 function allMonths(){
@@ -1014,7 +1015,7 @@ function scanModal(){
 
       ${scanState==='matched' ? `
         ${scanDuplicateOf ? `
-        <div class="scan-error" style="background:var(--saffron-soft);color:#8A6100;">
+        <div class="scan-error" style="background:var(--saffron-soft);color:#8C3A29;">
           ⚠ Ya existe un recibo de <strong>${escapeHtml(scanDuplicateOf.supplier)||'este proveedor'}</strong> el ${scanDuplicateOf.date} por un total similar (${money(scanDuplicateOf.total)}). Podría ser el mismo recibo escaneado dos veces.
           <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-weight:600;font-size:12.5px;cursor:pointer;">
             <input type="checkbox" id="scan-dup-confirm" ${scanDuplicateConfirmed?'checked':''}> Sí, es una compra distinta — aplicar de todos modos
@@ -1050,7 +1051,7 @@ function scanModal(){
             if(diffPct>0.5){
               // Cualquier aumento de precio genera alerta — la severidad visual escala con el tamaño del aumento
               const strong = diffPct>=priceAlertThreshold;
-              priceAlert = `<div style="font-size:11px;font-weight:700;color:${strong?'#B23A48':'#B8860B'};background:${strong?'var(--tomato-soft)':'var(--saffron-soft)'};padding:6px 8px;border-radius:6px;margin-top:8px;">
+              priceAlert = `<div style="font-size:11px;font-weight:700;color:${strong?'#B23A48':'var(--saffron)'};background:${strong?'var(--tomato-soft)':'var(--saffron-soft)'};padding:6px 8px;border-radius:6px;margin-top:8px;">
                 ▲ Precio de proveedor subió ${diffPct.toFixed(0)}% vs. costo actual (${money(matchedIng.costPerUnit)}/${escapeHtml(matchedIng.unit)} → ${money(newUnitCost)}/${escapeHtml(matchedIng.unit)})${strong?' — confirma que la lectura sea correcta':''}
               </div>`;
             } else if(diffPct<-0.5){
