@@ -116,10 +116,6 @@
   tr:last-child td{border-bottom:none;}
   td.mono-cell{font-family:'IBM Plex Mono';}
 
-  .stock-bar-wrap{width:110px;height:7px;background:#EDEBE3;border-radius:5px;overflow:hidden;}
-  .stock-bar-fill{height:100%;border-radius:5px;}
-  .stock-label{font-size:11px;color:var(--ink-soft);margin-top:4px;font-family:'IBM Plex Mono';}
-  .badge{padding:3px 9px;border-radius:7px;font-size:11.5px;font-weight:700;display:inline-block;}
   .price-updated{display:inline-block;background:var(--basil-soft);color:var(--basil);font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:6px;}
 
   .link-btn{background:none;border:none;color:var(--navy);font-weight:600;font-size:12.5px;cursor:pointer;padding:4px 6px;}
@@ -245,13 +241,13 @@
 <script>
 /* ================= ESTADO INICIAL ================= */
 let inventory = [
-  {id:'i1', name:'Pechuga de pollo', category:'Proteínas', unit:'lb', currentStock:18, minStock:15, costPerUnit:2.125, updated:false},
-  {id:'i2', name:'Camarón mediano', category:'Proteínas', unit:'lb', currentStock:3.5, minStock:8, costPerUnit:8.50, updated:false},
-  {id:'i3', name:'Queso mozzarella', category:'Lácteos', unit:'lb', currentStock:6, minStock:5, costPerUnit:3.80, updated:false},
-  {id:'i4', name:'Tomate', category:'Vegetales', unit:'lb', currentStock:9, minStock:10, costPerUnit:0.90, updated:false},
-  {id:'i5', name:'Aceite de oliva', category:'Abarrotes', unit:'oz', currentStock:64, minStock:32, costPerUnit:0.1875, updated:false},
-  {id:'i6', name:'Harina', category:'Abarrotes', unit:'lb', currentStock:22, minStock:20, costPerUnit:0.56, updated:false},
-  {id:'i7', name:'Tortilla de harina', category:'Abarrotes', unit:'unidad', currentStock:45, minStock:60, costPerUnit:0.30, updated:false},
+  {id:'i1', name:'Pechuga de pollo', category:'Proteínas', unit:'lb', costPerUnit:2.125, updated:false},
+  {id:'i2', name:'Camarón mediano', category:'Proteínas', unit:'lb', costPerUnit:8.50, updated:false},
+  {id:'i3', name:'Queso mozzarella', category:'Lácteos', unit:'lb', costPerUnit:3.80, updated:false},
+  {id:'i4', name:'Tomate', category:'Vegetales', unit:'lb', costPerUnit:0.90, updated:false},
+  {id:'i5', name:'Aceite de oliva', category:'Abarrotes', unit:'oz', costPerUnit:0.1875, updated:false},
+  {id:'i6', name:'Harina', category:'Abarrotes', unit:'lb', costPerUnit:0.56, updated:false},
+  {id:'i7', name:'Tortilla de harina', category:'Abarrotes', unit:'unidad', costPerUnit:0.30, updated:false},
 ];
 
 let purchases = [
@@ -350,15 +346,6 @@ function monthLabel(key){
   const names=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   return names[parseInt(m,10)-1]+' '+y;
 }
-function stockPct(item){ return item.minStock>0 ? (item.currentStock/item.minStock)*100 : 100; }
-function stockStatus(item){
-  const pct = stockPct(item);
-  if(item.currentStock <= 0) return {label:'Agotado', color:'var(--tomato)', bg:'var(--tomato-soft)'};
-  if(pct <= 100) return {label:'Bajo stock', color:'#B8860B', bg:'var(--saffron-soft)'};
-  return {label:'OK', color:'var(--basil)', bg:'var(--basil-soft)'};
-}
-function totalValue(){ return inventory.reduce((s,i)=>s+i.currentStock*i.costPerUnit,0); }
-function lowStockItems(){ return inventory.filter(i=>i.currentStock<=i.minStock); }
 function unitCost(ing){ return ing.costPerUnit; }
 function dishCost(dish){
   return dish.items.reduce((sum,it)=>{
@@ -464,44 +451,27 @@ function topbar(){
 
 /* ---------- DASHBOARD ---------- */
 function dashboardView(){
-  const low = lowStockItems();
-  const val = totalValue();
   const months = allMonths();
   const thisMonthKey = months[0] || new Date().toISOString().slice(0,7);
   const thisMonthSpend = spendForMonth(thisMonthKey);
+  const thisMonthCount = purchasesForMonth(thisMonthKey).length;
   const recentPurchases = [...purchases].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
 
   return `
 
-  <div class="grid-summary" style="grid-template-columns:repeat(3,1fr);">
-    <div class="stat-card">
-      <div class="stat-label">Valor del inventario</div>
-      <div class="stat-value navy">${money(val)}</div>
-    </div>
+  <div class="grid-summary" style="grid-template-columns:repeat(2,1fr);">
     <div class="stat-card">
       <div class="stat-label">Gasto de ${monthLabel(thisMonthKey)}</div>
       <div class="stat-value saffron">${money(thisMonthSpend)}</div>
       <div class="stat-hint">Ver detalle en Compras</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Ingredientes en bajo stock</div>
-      <div class="stat-value ${low.length>0?'tomato':'basil'}">${low.length}</div>
+      <div class="stat-label">Compras registradas este mes</div>
+      <div class="stat-value navy">${thisMonthCount}</div>
     </div>
   </div>
 
-  <div class="section-head"><div><h2>Alertas de reorden</h2><p>Ingredientes en o por debajo de su nivel mínimo</p></div></div>
-  <div class="table-wrap">
-    ${low.length===0 ? emptyState('✅','Todo en orden','Ningún ingrediente está por debajo de su mínimo.') : `
-    <table>
-      <thead><tr><th>Ingrediente</th><th>Stock actual</th><th>Mínimo</th><th>Estado</th></tr></thead>
-      <tbody>${low.map(i=>{
-        const s=stockStatus(i);
-        return `<tr><td style="font-weight:600;">${escapeHtml(i.name)}</td><td class="mono-cell">${i.currentStock} ${escapeHtml(i.unit)}</td><td class="mono-cell">${i.minStock} ${escapeHtml(i.unit)}</td><td><span class="badge" style="background:${s.bg};color:${s.color};">${s.label}</span></td></tr>`;
-      }).join('')}</tbody>
-    </table>`}
-  </div>
-
-  <div class="section-head"><div><h2>Compras recientes</h2><p>Últimos registros que actualizaron el inventario</p></div></div>
+  <div class="section-head"><div><h2>Compras recientes</h2><p>Últimos registros de compra</p></div></div>
   <div class="table-wrap">
     ${recentPurchases.length===0 ? emptyState('🧾','Sin compras aún','Registra tu primera compra en la pestaña Compras.') :
     recentPurchases.map(p=>{
@@ -522,27 +492,20 @@ function dashboardView(){
 function inventarioView(){
   return `
   <div class="section-head">
-    <div><h2>Inventario</h2><p>Stock actual, pesos/cantidades y valor por ingrediente</p></div>
+    <div><h2>Inventario</h2><p>Ingredientes y su costo actual por unidad, para calcular el costo de cada plato</p></div>
     <button class="btn btn-primary" id="btn-new-item">+ Nuevo ingrediente</button>
   </div>
-  ${inventory.length===0 ? emptyState('📦','Inventario vacío','Agrega tu primer ingrediente para empezar a controlar el stock.') : `
+  ${inventory.length===0 ? emptyState('📦','Inventario vacío','Agrega tu primer ingrediente para empezar a costear tus platos.') : `
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Ingrediente</th><th>Categoría</th><th>Stock (peso/cantidad)</th><th>Costo/unidad</th><th>Valor</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Ingrediente</th><th>Categoría</th><th>Unidad</th><th>Costo/unidad</th><th></th></tr></thead>
       <tbody>
         ${inventory.map(i=>{
-          const s=stockStatus(i); const pct=Math.min(stockPct(i),150);
           return `<tr>
             <td style="font-weight:600;">${escapeHtml(i.name)} ${i.updated?'<span class="price-updated">precio actualizado</span>':''}</td>
             <td style="color:var(--ink-soft);">${escapeHtml(i.category)}</td>
-            <td>
-              <div class="mono-cell">${i.currentStock} ${escapeHtml(i.unit)}</div>
-              <div class="stock-bar-wrap"><div class="stock-bar-fill" style="width:${Math.min(pct,100)}%;background:${s.color};"></div></div>
-              <div class="stock-label">mín. ${i.minStock} ${escapeHtml(i.unit)}</div>
-            </td>
-            <td class="mono-cell">${money(i.costPerUnit)}/${escapeHtml(i.unit)}</td>
-            <td class="mono-cell" style="font-weight:700;">${money(i.currentStock*i.costPerUnit)}</td>
-            <td><span class="badge" style="background:${s.bg};color:${s.color};">${s.label}</span></td>
+            <td class="mono-cell">${escapeHtml(i.unit)}</td>
+            <td class="mono-cell" style="font-weight:700;">${money(i.costPerUnit)}/${escapeHtml(i.unit)}</td>
             <td><button class="link-btn" data-edit-item="${i.id}">Editar</button><button class="link-btn danger" data-del-item="${i.id}">Eliminar</button></td>
           </tr>`;
         }).join('')}
@@ -564,7 +527,7 @@ function comprasView(){
 
   return `
   <div class="section-head">
-    <div><h2>Compras</h2><p>Cada compra actualiza el stock y el costo del ingrediente automáticamente</p></div>
+    <div><h2>Compras</h2><p>Cada compra actualiza el costo del ingrediente automáticamente</p></div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-camera" id="btn-scan-receipt">📷 Escanear recibo</button>
       <button class="btn btn-primary" id="btn-new-purchase">+ Registrar compra</button>
@@ -768,7 +731,7 @@ function emptyState(icon,title,sub){
 
 /* ================= MODAL: INGREDIENTE ================= */
 function openItemModal(item){
-  draftItem = item ? {...item} : {id:uid('i'), name:'', category:'', unit:'lb', currentStock:'', minStock:'', costPerUnit:''};
+  draftItem = item ? {...item} : {id:uid('i'), name:'', category:'', unit:'lb', costPerUnit:''};
   editingItem = item ? item.id : null;
   showItemModal = true; render();
 }
@@ -777,7 +740,7 @@ function itemModal(){
   <div class="overlay" id="item-overlay">
     <div class="modal">
       <h3>${editingItem?'Editar ingrediente':'Nuevo ingrediente'}</h3>
-      <div class="sub">Peso o cantidad por unidad, y nivel mínimo para alertas</div>
+      <div class="sub">Unidad y costo, para calcular el costo de cada plato que lo use</div>
       <div class="field"><label>Nombre</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="Ej. Camarón mediano"></div>
       <div class="field-row">
         <div class="field"><label>Categoría</label><input id="fi-cat" type="text" value="${escapeHtml(draftItem.category)}" placeholder="Ej. Proteínas"></div>
@@ -785,12 +748,8 @@ function itemModal(){
           <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${u}</option>`).join('')}</select>
         </div>
       </div>
-      <div class="field-row">
-        <div class="field"><label>Stock actual (peso/cantidad)</label><input id="fi-stock" type="number" step="0.01" value="${draftItem.currentStock}" placeholder="0"></div>
-        <div class="field"><label>Stock mínimo</label><input id="fi-min" type="number" step="0.01" value="${draftItem.minStock}" placeholder="0"></div>
-      </div>
       <div class="field"><label>Costo por unidad</label><input id="fi-cost" type="number" step="0.01" value="${draftItem.costPerUnit}" placeholder="0.00"></div>
-      <div class="helper-note">Al registrar una compra o escanear un recibo, el stock y el costo se actualizan solos.</div>
+      <div class="helper-note">Al registrar una compra o escanear un recibo, el costo se actualiza solo.</div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-item">Cancelar</button>
         <button class="btn btn-primary" id="btn-save-item">Guardar</button>
@@ -806,7 +765,7 @@ function purchaseModal(){
   <div class="overlay" id="purchase-overlay">
     <div class="modal">
       <h3>Registrar compra</h3>
-      <div class="sub">Actualiza el stock y el precio de costo automáticamente</div>
+      <div class="sub">Actualiza el precio de costo automáticamente</div>
       <div class="field"><label>Ingrediente</label><select id="pf-ing">${inventory.map(i=>`<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}</select></div>
       <div class="field-row">
         <div class="field"><label>Cantidad comprada</label><input id="pf-qty" type="number" step="0.01" placeholder="Ej. 25"></div>
@@ -1271,14 +1230,13 @@ function applyScanResults(){
     let ingId = item.matchedIngId;
     let ingName = '';
     if(ingId==='__new__'){
-      const newIng = {id:uid('i'), name:item.rawName, category:'Sin categoría', unit:item.unit||'unidad', currentStock:item.qty, minStock:Math.max(item.qty*0.3,1), costPerUnit:item.totalPrice/item.qty, updated:true};
+      const newIng = {id:uid('i'), name:item.rawName, category:'Sin categoría', unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true};
       inventory.push(newIng);
       ingId = newIng.id;
       ingName = newIng.name;
     } else {
       const ing = inventory.find(i=>i.id===ingId);
       if(ing){
-        ing.currentStock += item.qty;
         ing.costPerUnit = item.totalPrice/item.qty;
         ing.updated = true;
         ingName = ing.name;
@@ -1433,8 +1391,6 @@ function attachEvents(){
         id:draftItem.id, name,
         category:document.getElementById('fi-cat').value.trim(),
         unit:document.getElementById('fi-unit').value,
-        currentStock:parseFloat(document.getElementById('fi-stock').value)||0,
-        minStock:parseFloat(document.getElementById('fi-min').value)||0,
         costPerUnit:parseFloat(document.getElementById('fi-cost').value)||0,
         updated:draftItem.updated||false
       };
@@ -1459,7 +1415,7 @@ function attachEvents(){
       if(!ingId||!qty||!totalPrice) return;
       purchases.push({id:uid('p'), ingId, qty, totalPrice, supplier, date});
       const ing=inventory.find(i=>i.id===ingId);
-      if(ing){ ing.currentStock+=qty; ing.costPerUnit=totalPrice/qty; ing.updated=true; }
+      if(ing){ ing.costPerUnit=totalPrice/qty; ing.updated=true; }
       saveState();
       closePurchaseModal();
     };
