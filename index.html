@@ -270,7 +270,10 @@ let dishes = [
   {id:'d3', name:'Margherita Pizza 12"', category:'Pizzas', price:13.00, items:[{ingId:'i6', qty:0.4},{ingId:'i3', qty:0.5},{ingId:'i4', qty:0.3},{ingId:'i5', qty:0.3}]},
 ];
 
-let receipts = []; // historial: {id, imageBase64, mediaType, supplier, date, total, itemCount, appliedItems, createdAt, purchaseIds}
+let receipts = []; // historial: {id, images:[{base64,mediaType}, ...] (una o varias páginas), supplier, date, total, itemCount, appliedItems, createdAt, purchaseIds}
+// Nota: recibos guardados antes de la migración a Claude API pueden tener el formato viejo
+// de una sola foto (imageBase64 + mediaType) en vez de "images" — por eso receiptImages()
+// abajo soporta ambos formatos en vez de asumir que todos los recibos ya son el nuevo.
 let aliasMap = {}; // nombre normalizado del recibo -> ingredienteId, aprendido de correcciones previas
 let receiptSearchQuery = '';
 
@@ -401,6 +404,7 @@ const I18N = {
     err_ocr_read:'No se pudo leer el texto de la imagen — intenta con una foto más clara y bien iluminada',
     err_no_text:'No se detectó texto en la imagen — intenta con una foto más clara y bien iluminada',
     err_generic_receipt:'Ocurrió un error leyendo el recibo',
+    err_function_not_found:'No se pudo conectar con el lector de recibos — revisa que la función esté publicada en Netlify (netlify/functions/extract-receipt.js) y que tenga la API key de Anthropic configurada.',
     fallback_no_product_name:'Producto sin nombre', fallback_scanned:'Escaneado', fallback_unspecified:'Sin especificar',
     storage_full_warning:'⚠ No se pudo guardar este cambio — el almacenamiento del navegador está lleno. Anda a la pestaña Recibos, abrí un recibo viejo que ya no necesites y tocá "Eliminar" para liberar espacio (las fotos son lo que más ocupa). Después volvé a intentar el cambio.',
     unit_unidad:'unidad',
@@ -479,6 +483,7 @@ const I18N = {
     err_ocr_read:"Couldn't read the text in the image — try a clearer, better-lit photo",
     err_no_text:'No text detected in the image — try a clearer, better-lit photo',
     err_generic_receipt:'Something went wrong reading the receipt',
+    err_function_not_found:"Couldn't connect to the receipt reader — check that the function is published on Netlify (netlify/functions/extract-receipt.js) and has the Anthropic API key configured.",
     fallback_no_product_name:'Unnamed product', fallback_scanned:'Scanned', fallback_unspecified:'Unspecified',
     storage_full_warning:'⚠ This change could not be saved — your browser storage is full. Go to the Receipts tab, open an old receipt you no longer need, and tap "Delete" to free up space (photos take up the most room). Then try the change again.',
     unit_unidad:'unit',
@@ -497,6 +502,15 @@ function localMonthStr(d){ d=d||new Date(); return d.getFullYear()+'-'+String(d.
 function escapeHtml(str){
   if(str===null||str===undefined) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+/* Las fotos de un recibo, en el formato nuevo (varias páginas, desde que se migró a
+   Claude API) o el viejo (una sola foto, recibos guardados antes de esa migración) —
+   siempre devuelve un array, aunque sea de un solo elemento, para no repetir este
+   if/else en cada lugar que necesita mostrar/imprimir/compartir la foto de un recibo. */
+function receiptImages(r){
+  if(Array.isArray(r.images) && r.images.length>0) return r.images;
+  if(r.imageBase64) return [{base64:r.imageBase64, mediaType:r.mediaType}];
+  return [];
 }
 
 /* ================= PERSISTENCIA (localStorage) ================= */
@@ -796,16 +810,21 @@ function recibosView(){
         <div style="font-size:12px;color:var(--ink-soft);">${t('rec_month_total')}: <strong style="color:var(--ink);">${money(g.total)}</strong></div>
       </div>
       <div class="dish-grid">
-        ${g.receipts.map(r=>`
-          <div class="dish-card" style="cursor:pointer;" data-view-receipt="${r.id}">
-            <img src="data:${r.mediaType};base64,${r.imageBase64}" style="width:100%;height:140px;object-fit:cover;">
+        ${g.receipts.map(r=>{
+          const imgs = receiptImages(r);
+          const cover = imgs[0];
+          return `
+          <div class="dish-card" style="cursor:pointer;position:relative;" data-view-receipt="${r.id}">
+            ${cover ? `<img src="data:${cover.mediaType};base64,${cover.base64}" style="width:100%;height:140px;object-fit:cover;">` : `<div style="width:100%;height:140px;background:#FAFAF7;"></div>`}
+            ${imgs.length>1 ? `<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${imgs.length}p</span>` : ''}
             <div style="padding:14px 16px;">
               <div style="font-weight:700;font-size:14px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
               <div style="font-size:11.5px;color:var(--ink-soft);margin:3px 0 8px;">${r.date} &middot; ${r.itemCount} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
               <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--navy);font-size:15px;">${money(r.total)}</div>
             </div>
           </div>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
     `).join(''))
   }
@@ -1418,18 +1437,10 @@ function fileToBase64(file){
   });
 }
 
-/* ================================================================
-   DESDE AQUÍ: código del OCR viejo con Tesseract.js + parser regex.
-   YA NO SE USA — processReceiptImage() ahora llama a la Netlify
-   Function que usa Claude API. Se deja aquí sin borrar por si hay
-   que revertir rápido. Se puede eliminar todo este bloque (hasta
-   "FIN CÓDIGO TESSERACT" más abajo) una vez que confirmes que el
-   nuevo flujo funciona bien en producción.
-   ================================================================ */
-
 /* Comprime una foto nueva y la agrega como una página más del recibo que se está
    escaneando. Se puede llamar varias veces (una por página) antes de mandar todo
-   junto a leer con processReceiptImage(). */
+   junto a leer con processReceiptImage(). SIGUE EN USO por el flujo de Claude API
+   — no está en el bloque de código viejo de más abajo aunque antes vivía ahí. */
 async function addScanPage(file){
   try{
     const compressed = await fileToBase64(file);
@@ -1442,6 +1453,17 @@ async function addScanPage(file){
     render();
   }
 }
+
+/* ================================================================
+   DESDE AQUÍ: código del OCR viejo con Tesseract.js + parser regex.
+   YA NO SE USA — processReceiptImage() ahora llama a la Netlify
+   Function que usa Claude API (ver extract-receipt.js). Se deja aquí
+   sin borrar por si hay que revertir rápido. TODO este bloque, hasta
+   "FIN CÓDIGO TESSERACT" más abajo, se puede eliminar completo una
+   vez que confirmes que el flujo con Claude funciona bien en producción
+   — a diferencia de antes, ahora el bloque NO tiene ninguna función que
+   otra parte del código siga usando (addScanPage ya se sacó de acá).
+   ================================================================ */
 
 /* Umbral de Otsu: encuentra automáticamente el punto de corte blanco/negro
    que mejor separa el texto del fondo, sin importar cuán clara o sucia esté la foto. */
@@ -1698,7 +1720,14 @@ async function processReceiptImage(){
       throw new Error(t('err_ocr_read'));
     }
 
-    const parsed = await response.json();
+    let parsed;
+    try{
+      parsed = await response.json();
+    }catch(parseErr){
+      // La función de Netlify no devolvió JSON — lo más probable es que no esté publicada
+      // todavía (o esté mal ubicada) y el pedido cayó en una página de error genérica.
+      throw new Error(t('err_function_not_found'));
+    }
     if(!response.ok || parsed.error){
       throw new Error(parsed.error || t('err_generic_receipt'));
     }
@@ -1827,17 +1856,18 @@ function printReceipt(r){
   const rows = r.appliedItems.map(it=>`
     <tr><td>${escapeHtml(it.rawName)}</td><td>${it.qty} ${escapeHtml(unitLabel(it.unit))}</td><td>${money(it.totalPrice)}</td></tr>
   `).join('');
+  const imgsHtml = receiptImages(r).map(img=>`<img src="data:${img.mediaType};base64,${img.base64}">`).join('');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(r.supplier)||t('no_supplier_name')}</title>
     <style>
       body{font-family:-apple-system,sans-serif;padding:24px;color:#1C1C1E;max-width:480px;margin:0 auto;}
       h2{margin:0 0 4px;} .meta{color:#5F6368;font-size:13px;margin-bottom:16px;}
-      img{max-width:100%;border-radius:8px;margin-bottom:16px;}
+      img{max-width:100%;border-radius:8px;margin-bottom:16px;display:block;}
       table{width:100%;border-collapse:collapse;} th,td{text-align:left;padding:6px 4px;border-bottom:1px solid #ddd;font-size:13px;}
       tfoot td{font-weight:700;border-bottom:none;padding-top:10px;}
     </style></head><body>
     <h2>${escapeHtml(r.supplier)||t('no_supplier_name')}</h2>
     <div class="meta">${escapeHtml(r.date)}</div>
-    <img src="data:${r.mediaType};base64,${r.imageBase64}">
+    ${imgsHtml}
     <table>
       <thead><tr><th>${t('th_ingredient')}</th><th>${t('lbl_qty_bought')}</th><th>${t('th_cost_unit').split('/')[0]}</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -1850,25 +1880,33 @@ function printReceipt(r){
 }
 
 function downloadReceiptImage(r){
-  const ext = (r.mediaType||'image/jpeg').includes('png') ? 'png' : 'jpg';
-  const a = document.createElement('a');
-  a.href = `data:${r.mediaType};base64,${r.imageBase64}`;
-  a.download = `receipt-${r.date||'sin-fecha'}.${ext}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  const imgs = receiptImages(r);
+  imgs.forEach((img,idx)=>{
+    const ext = (img.mediaType||'image/jpeg').includes('png') ? 'png' : 'jpg';
+    const suffix = imgs.length>1 ? `-p${idx+1}` : '';
+    const a = document.createElement('a');
+    a.href = `data:${img.mediaType};base64,${img.base64}`;
+    a.download = `receipt-${r.date||'sin-fecha'}${suffix}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
 }
 
 async function shareReceipt(r){
   const label = `${r.supplier||t('no_supplier_name')} — ${r.date}`;
-  if(navigator.share){
+  const imgs = receiptImages(r);
+  if(navigator.share && imgs.length>0){
     try{
-      const res = await fetch(`data:${r.mediaType};base64,${r.imageBase64}`);
-      const blob = await res.blob();
-      const ext = (r.mediaType||'image/jpeg').includes('png') ? 'png' : 'jpg';
-      const file = new File([blob], `receipt-${r.date||'sin-fecha'}.${ext}`, {type:r.mediaType});
-      const shareData = (navigator.canShare && navigator.canShare({files:[file]}))
-        ? {files:[file], title:label, text:label}
+      const files = await Promise.all(imgs.map(async (img,idx)=>{
+        const res = await fetch(`data:${img.mediaType};base64,${img.base64}`);
+        const blob = await res.blob();
+        const ext = (img.mediaType||'image/jpeg').includes('png') ? 'png' : 'jpg';
+        const suffix = imgs.length>1 ? `-p${idx+1}` : '';
+        return new File([blob], `receipt-${r.date||'sin-fecha'}${suffix}.${ext}`, {type:img.mediaType});
+      }));
+      const shareData = (navigator.canShare && navigator.canShare({files}))
+        ? {files, title:label, text:label}
         : {title:label, text:label};
       await navigator.share(shareData);
       return;
@@ -1876,8 +1914,8 @@ async function shareReceipt(r){
       if(e && e.name==='AbortError') return; // el usuario cerró el panel de compartir, no es un error
     }
   }
-  // Sin Web Share API disponible (la mayoría de navegadores de escritorio): descarga la foto
-  // para que el usuario la comparta a mano por donde prefiera.
+  // Sin Web Share API disponible (la mayoría de navegadores de escritorio): descarga las fotos
+  // para que el usuario las comparta a mano por donde prefiera.
   downloadReceiptImage(r);
 }
 
