@@ -311,11 +311,15 @@ let scanImageMediaType = null;
 let scanExtracted = []; // [{name, qty, unit, totalPrice, matchedIngId(new/null), supplier, date}]
 let scanErrorMsg = '';
 let scanSupplier = '';
-let scanDate = new Date().toISOString().slice(0,10);
+let scanDate = localDateStr();
 
 /* ================= UTILIDADES ================= */
 function uid(p){return p+Math.random().toString(36).slice(2,9);}
 function money(n){return '$'+(isNaN(n)?'0.00':n.toFixed(2));}
+/* Fecha/mes de "hoy" en hora LOCAL — a diferencia de toISOString() (que da la fecha en UTC),
+   esto evita que a alguien en América se le adelante un día al escanear o registrar de noche. */
+function localDateStr(d){ d=d||new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function localMonthStr(d){ d=d||new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function escapeHtml(str){
   if(str===null||str===undefined) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -378,9 +382,8 @@ function dishCostAsOf(dish, dateStr){
 }
 function lastMonthEndDate(){
   const now = new Date();
-  const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastDayPrevMonth = new Date(firstOfThisMonth.getTime() - 86400000);
-  return lastDayPrevMonth.toISOString().slice(0,10);
+  const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+  return localDateStr(lastDayPrevMonth);
 }
 function marginComparison(dish){
   const costNow = dishCost(dish);
@@ -465,7 +468,7 @@ function soccerBallSvg(){
 
 function dashboardView(){
   const months = allMonths();
-  const currentMonthKey = months[0] || new Date().toISOString().slice(0,7);
+  const currentMonthKey = months[0] || localMonthStr();
   const viewedMonth = selectedStatMonth || currentMonthKey;
   const viewedSpend = spendForMonth(viewedMonth);
   const currentSpend = spendForMonth(currentMonthKey);
@@ -543,7 +546,10 @@ function inventarioView(){
   return `
   <div class="section-head">
     <div><h2>Inventario</h2><p>Ingredientes y su costo actual por unidad, para calcular el costo de cada plato</p></div>
-    <button class="btn btn-primary" id="btn-new-item">+ Nuevo ingrediente</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost" id="btn-new-purchase">+ Registrar compra</button>
+      <button class="btn btn-primary" id="btn-new-item">+ Nuevo ingrediente</button>
+    </div>
   </div>
   ${inventory.length===0 ? emptyState('📦','Inventario vacío','Agrega tu primer ingrediente para empezar a costear tus platos.') : `
   <div class="table-wrap">
@@ -572,7 +578,7 @@ function recibosView(){
   <div class="section-head">
     <div><h2>Recibos</h2><p>Historial de recibos escaneados o subidos — cada uno alimentó el inventario automáticamente</p></div>
   </div>
-  ${sorted.length===0 ? emptyState('🧾','Aún no hay recibos guardados','Cuando escanees uno desde el botón rojo, aparecerá aquí con la foto original y los productos detectados.') : `
+  ${sorted.length===0 ? emptyState('🧾','Aún no hay recibos guardados','Cuando escanees uno desde el botón de escanear, aparecerá aquí con la foto original y los productos detectados.') : `
   <div class="dish-grid">
     ${sorted.map(r=>`
       <div class="dish-card" style="cursor:pointer;" data-view-receipt="${r.id}">
@@ -726,7 +732,7 @@ function monthlySpendChart(monthsAsc, currentMonthKey){
 
 function monthlySpendModal(){
   const months = allMonths();
-  const currentMonthKey = months[0] || new Date().toISOString().slice(0,7);
+  const currentMonthKey = months[0] || localMonthStr();
   const monthsAsc = [...months].reverse(); // más viejo primero, para leer izquierda a derecha en el tiempo
 
   return `
@@ -827,7 +833,7 @@ function pinGateView(){
 
 function menuView(){
   const now = new Date();
-  const thisMonthName = monthLabel(now.toISOString().slice(0,7));
+  const thisMonthName = monthLabel(localMonthStr(now));
   const lm = new Date(now.getFullYear(), now.getMonth()-1, 1);
   const lastMonthName = monthLabel(lm.getFullYear()+'-'+String(lm.getMonth()+1).padStart(2,'0'));
 
@@ -933,7 +939,7 @@ function purchaseModal(){
       </div>
       <div class="field-row">
         <div class="field"><label>Proveedor</label><input id="pf-supplier" type="text" placeholder="Ej. US Foods"></div>
-        <div class="field"><label>Fecha</label><input id="pf-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+        <div class="field"><label>Fecha</label><input id="pf-date" type="date" value="${localDateStr()}"></div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-purchase">Cancelar</button>
@@ -985,7 +991,7 @@ function dishModal(){
 /* ================= MODAL: ESCANEAR RECIBO (OCR local con Tesseract.js, sin backend) ================= */
 function openScanModal(){
   scanState='idle'; scanImageBase64=null; scanImageMediaType=null; scanExtracted=[]; scanErrorMsg='';
-  scanSupplier=''; scanDate=new Date().toISOString().slice(0,10);
+  scanSupplier=''; scanDate=localDateStr();
   scanDuplicateOf=null; scanDuplicateConfirmed=false;
   showScanModal=true; render();
 }
@@ -1341,7 +1347,7 @@ async function processReceiptImage(file){
     const parsed = parseReceiptText(rawText);
 
     scanSupplier = parsed.supplier || '';
-    scanDate = parsed.date || new Date().toISOString().slice(0,10);
+    scanDate = parsed.date || localDateStr();
 
     scanExtracted = parsed.items.map(it=>{
       const nameLower = (it.name||'').toLowerCase().trim();
@@ -1430,7 +1436,7 @@ function attachEvents(){
     btn.onclick=()=>{
       if(statMonthNavigating || btn.disabled) return;
       const months = allMonths();
-      const currentMonthKey = months[0] || new Date().toISOString().slice(0,7);
+      const currentMonthKey = months[0] || localMonthStr();
       const viewedMonth = selectedStatMonth || currentMonthKey;
       const idx = months.indexOf(viewedMonth);
       if(idx===-1) return;
@@ -1461,6 +1467,7 @@ function attachEvents(){
   }
 
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
+  const btnNewPurchase=document.getElementById('btn-new-purchase'); if(btnNewPurchase) btnNewPurchase.onclick=()=>openPurchaseModal();
   const btnNewDish=document.getElementById('btn-new-dish'); if(btnNewDish) btnNewDish.onclick=()=>openDishModal(null);
   const btnLockMenu=document.getElementById('btn-lock-menu');
   if(btnLockMenu) btnLockMenu.onclick=()=>{ menuUnlocked=false; pinEntry=''; pinError=''; render(); };
