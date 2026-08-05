@@ -1519,15 +1519,38 @@ function parseReceiptText(text){
   }
 
   const priceAtEnd = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*$/;
-  const leadingQty = /^(\d{1,3}(?:[.,]\d{1,3})?)\s*[xX]?\s+/;
+  // "2 x Producto", "2x Producto" o "1 @ $1.79" / "1@ $1.79" (el OCR a veces pega el "@" a la
+  // cantidad sin espacio, así que "@" no exige espacio detrás como sí lo exige "x")
+  const leadingQty = /^(\d{1,3}(?:[.,]\d{1,3})?)\s*(?:[xX@]\s*|\s+)/;
   const bareNumberTok = /^\d+(?:[.,]\d+)?$/;
+  // Unidades/palabras de relleno que NO cuentan como "nombre real" cuando decidimos si una
+  // línea trae su propio nombre de producto o si es solo la cantidad/precio de la línea anterior
+  const UNIT_FILLER_WORDS = new Set(['lb','lbs','kg','kgs','oz','g','gr','ml','l','ea','pc','pcs','unidad','unid','un']);
+  function hasRealNameWords(str){
+    return str.split(' ').some(tok=>{
+      const clean = tok.replace(/[^a-zA-ZñÑáéíóúÁÉÍÓÚ]/g,'');
+      return clean.length>=3 && !UNIT_FILLER_WORDS.has(clean.toLowerCase());
+    });
+  }
+
   const items = [];
+  // Recibos de supermercado suelen traer el nombre del producto en su propia línea y la
+  // cantidad/precio en la línea de abajo (ej. "ROMA TOMATOES" / "2.35 lb @ $1.99/lb  $4.68").
+  // Guardamos la última línea de texto "con pinta de nombre" para usarla si la siguiente
+  // línea con precio resulta ser solo cantidad/unidad, sin nombre propio.
+  let pendingName = '';
   for(const line of lines){
-    if(RECEIPT_LINE_BLACKLIST.test(line)) continue;
+    if(RECEIPT_LINE_BLACKLIST.test(line)){ pendingName=''; continue; }
     const priceMatch = line.match(priceAtEnd);
-    if(!priceMatch) continue;
+    if(!priceMatch){
+      if(/[a-zA-ZñÑáéíóúÁÉÍÓÚ]{3,}/.test(line) && !/\d{3,}/.test(line)){
+        const clean = line.replace(/[^\wñÑáéíóúÁÉÍÓÚ\s.&-]/g,'').trim();
+        if(clean) pendingName = clean;
+      }
+      continue;
+    }
     const price = normalizeReceiptNumber(priceMatch[1]);
-    if(!price || price<=0 || price>100000) continue;
+    if(!price || price<=0 || price>100000){ pendingName=''; continue; }
     let rest = line.slice(0, priceMatch.index).trim();
     rest = rest.replace(/[.\-·•]{2,}/g,' ').replace(/\s{2,}/g,' ').trim();
     const tokens = rest.split(' ');
@@ -1552,26 +1575,36 @@ function parseReceiptText(text){
       }
     }
 
-    let nameTokens;
-    let qtyVerified = false;
+    let name, qtyVerified = false;
+    const qtyMatch = rest.match(leadingQty);
+    const restAfterQty = qtyMatch ? rest.slice(qtyMatch[0].length) : rest;
+
     if(qtyIdx>-1){
       // La cantidad se cruzó contra el precio (cant × precio_unit ≈ total), así que es confiable
-      nameTokens = tokens.filter((_,idx)=> idx!==qtyIdx && idx!==priceIdx);
+      const nameTokens = tokens.filter((_,idx)=> idx!==qtyIdx && idx!==priceIdx && !/^[xX]$/.test(tokens[idx]));
+      name = nameTokens.join(' ').replace(/^[^a-zA-ZñÑáéíóúÁÉÍÓÚ]*/,'').trim();
       qtyVerified = true;
+    } else if(qtyMatch && pendingName && !hasRealNameWords(restAfterQty)){
+      // La línea es solo "cantidad @ precio" (ej. "1 @ $1.79"), sin nombre propio —
+      // el nombre real vino en la línea de arriba
+      const q = normalizeReceiptNumber(qtyMatch[1]);
+      if(q>0 && q<1000) qty = q;
+      name = pendingName;
+    } else if(qtyMatch){
+      // "2 x Producto ... precio" (con o sin espacio pegado al "x"/"@") — el nombre viene
+      // después de la cantidad, usamos restAfterQty en vez de tokens de toda la línea para
+      // no arrastrar la cantidad pegada al nombre (ej. "2xManzana" → "Manzana", no "xManzana")
+      const q = normalizeReceiptNumber(qtyMatch[1]);
+      if(q>0 && q<1000) qty = q;
+      const nameTokens = restAfterQty.split(' ').filter(tok=>tok && !bareNumberTok.test(tok) && !/^[xX]$/.test(tok));
+      name = nameTokens.join(' ').replace(/^[^a-zA-ZñÑáéíóúÁÉÍÓÚ]*/,'').trim();
     } else {
-      // No se pudo confirmar una columna de cantidad — probamos el patrón simple
-      // "2 x Producto" al inicio (leído directo del texto, sin cruce contra el precio,
-      // así que queda marcado como no verificado), y si tampoco hay eso, cantidad queda en 1
-      const qtyMatch = rest.match(leadingQty);
-      if(qtyMatch){
-        const q = normalizeReceiptNumber(qtyMatch[1]);
-        if(q>0 && q<1000) qty = q;
-      }
-      nameTokens = tokens.filter(tok=>!bareNumberTok.test(tok));
+      // "Producto ... precio", sin ningún indicio de cantidad al principio
+      const nameTokens = tokens.filter(tok=>!bareNumberTok.test(tok) && !/^[xX]$/.test(tok));
+      name = nameTokens.join(' ').replace(/^[^a-zA-ZñÑáéíóúÁÉÍÓÚ]*/,'').trim();
     }
-    nameTokens = nameTokens.filter(tok=>!/^[xX]$/.test(tok));
 
-    const name = nameTokens.join(' ').replace(/^[^a-zA-ZñÑáéíóúÁÉÍÓÚ]*/,'').trim();
+    pendingName = '';
     if(name.length<2) continue;
     items.push({name, quantity:qty, unit:'unidad', total_price:price, qtyVerified});
     if(items.length>=40) break;
