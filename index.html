@@ -43,45 +43,19 @@
   .tab.active{background:var(--navy);color:#fff;}
   .tab:not(.active):hover{color:var(--ink);}
 
-  .scan-fab-wrap{
-    position:fixed;top:18px;left:50%;transform:translateX(-50%);
-    display:flex;align-items:center;flex-shrink:0;z-index:60;
-    touch-action:none;cursor:grab;transition:left .15s ease;
-  }
-  .scan-fab-wrap.dragging{cursor:grabbing;transition:none;}
-  .scan-fab-wrap.dragging .scan-fab{transform:scale(1.08);}
-  .scan-fab{
-    width:60px;height:60px;border-radius:50%;border:none;cursor:pointer;position:relative;z-index:2;
-    background:conic-gradient(from -90deg, #EA4335 0deg 120deg, #FBBC05 120deg 240deg, #34A853 240deg 360deg);
-    display:flex;align-items:center;justify-content:center;
-    box-shadow:0 4px 14px rgba(32,33,36,0.35), 0 1px 3px rgba(0,0,0,0.2);
-    transition:transform .3s ease;
-  }
-  .scan-fab::before{
-    content:'';position:absolute;inset:9px;border-radius:50%;background:#fff;
-  }
-  .scan-fab::after{
-    content:'';position:absolute;inset:18px;border-radius:50%;background:#4285F4;
-    box-shadow:inset 0 -2px 4px rgba(0,0,0,0.15);
-  }
-  .scan-fab:hover{transform:scale(1.06);}
-  .scan-fab:active{transform:scale(0.94);}
+  .scan-card{cursor:pointer;transition:transform .2s ease, box-shadow .2s ease;text-align:left;}
+  .scan-card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(32,33,36,0.1), 0 12px 28px rgba(32,33,36,0.12);}
+  .scan-card:active{transform:scale(0.98);}
+  .scan-fab-mini{width:52px;height:52px;flex-shrink:0;position:relative;}
+  .scan-fab-mini svg{position:relative;z-index:2;width:100%;height:100%;filter:drop-shadow(0 2px 5px rgba(32,33,36,0.25));}
   .scan-fab-ring{
-    position:absolute;inset:0;border-radius:50%;background:rgba(66,133,244,0.4);
+    position:absolute;inset:0;border-radius:50%;background:rgba(52,168,83,0.35);
     animation:fabPulse 1.8s cubic-bezier(0.3,0.6,0.4,1) infinite; z-index:1;
   }
   .scan-fab-ring.delay{animation-delay:.6s;}
   @keyframes fabPulse{
     0%{transform:scale(1);opacity:.65;}
     100%{transform:scale(1.9);opacity:0;}
-  }
-  .scan-fab-label{
-    position:absolute;top:68px;left:50%;transform:translateX(-50%);
-    font-size:10.5px;font-weight:700;color:var(--navy);white-space:nowrap;
-    letter-spacing:.02em;
-  }
-  @media (max-width:720px){
-    .scan-fab-label{display:none;}
   }
 
   .grid-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
@@ -277,7 +251,6 @@ let editingItem=null, editingDish=null;
 let draftItem=null, draftDish=null;
 let scanDuplicateOf=null; // receipt existente si se detecta posible duplicado
 let scanDuplicateConfirmed=false;
-let fabPositionPct = 50; // posición horizontal del botón de escaneo, 0-100% del ancho de pantalla
 
 // PIN del gerente, guardado como hash SHA-256 (no en texto plano) para que no se lea directo
 // desde "ver código fuente". Esto sube la barrera casual pero NO es seguridad real: al ser
@@ -319,7 +292,7 @@ const STORAGE_KEY = 'platocost_data_v1';
 function saveState(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      inventory, purchases, dishes, receipts, aliasMap, priceAlertThreshold, fabPositionPct
+      inventory, purchases, dishes, receipts, aliasMap, priceAlertThreshold
     }));
   }catch(e){
     console.warn('No se pudo guardar en localStorage (¿espacio lleno?)', e);
@@ -336,7 +309,6 @@ function loadState(){
     if(Array.isArray(data.receipts)) receipts = data.receipts;
     if(data.aliasMap && typeof data.aliasMap==='object') aliasMap = data.aliasMap;
     if(typeof data.priceAlertThreshold==='number') priceAlertThreshold = data.priceAlertThreshold;
-    if(typeof data.fabPositionPct==='number') fabPositionPct = data.fabPositionPct;
   }catch(e){
     console.warn('No se pudo leer localStorage', e);
   }
@@ -435,12 +407,6 @@ function topbar(){
         <div class="brand-name">ATRON</div>
       </div>
     </div>
-    <div class="scan-fab-wrap" id="scan-fab-wrap" style="left:${fabPositionPct}%;">
-      <div class="scan-fab-ring"></div>
-      <div class="scan-fab-ring delay"></div>
-      <button class="scan-fab" id="btn-scan-fab" title="Escanear recibo"></button>
-      <div class="scan-fab-label">Escanear<br>recibo</div>
-    </div>
     <div class="tabs">
       <button class="tab ${activeTab==='dashboard'?'active':''}" data-tab="dashboard">Dashboard</button>
       <button class="tab ${activeTab==='inventario'?'active':''}" data-tab="inventario">Inventario</button>
@@ -452,11 +418,22 @@ function topbar(){
 }
 
 /* ---------- DASHBOARD ---------- */
+function soccerBallSvg(){
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="48" fill="#fff" stroke="#D8D8D8" stroke-width="1.5"/>
+    <polygon points="50,36 63.3,45.7 58.2,61.3 41.8,61.3 36.7,45.7" fill="#1C1C1E"/>
+    <polygon points="67.6,17.7 75.2,23.2 72.3,32.2 62.9,32.2 60.0,23.2" fill="#1C1C1E"/>
+    <polygon points="78.5,51.3 86.1,56.8 83.2,65.8 73.8,65.8 70.9,56.8" fill="#1C1C1E"/>
+    <polygon points="50.0,72.0 57.6,77.5 54.7,86.5 45.3,86.5 42.4,77.5" fill="#1C1C1E"/>
+    <polygon points="21.5,51.3 29.1,56.8 26.2,65.8 16.8,65.8 13.9,56.8" fill="#1C1C1E"/>
+    <polygon points="32.4,17.7 40.0,23.2 37.1,32.2 27.7,32.2 24.8,23.2" fill="#1C1C1E"/>
+  </svg>`;
+}
+
 function dashboardView(){
   const months = allMonths();
   const thisMonthKey = months[0] || new Date().toISOString().slice(0,7);
   const thisMonthSpend = spendForMonth(thisMonthKey);
-  const thisMonthCount = purchasesForMonth(thisMonthKey).length;
   const recentPurchases = [...purchases].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
 
   return `
@@ -467,9 +444,16 @@ function dashboardView(){
       <div class="stat-value saffron">${money(thisMonthSpend)}</div>
       <div class="stat-hint">Ver detalle en Compras</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-label">Compras registradas este mes</div>
-      <div class="stat-value navy">${thisMonthCount}</div>
+    <div class="stat-card scan-card" id="btn-scan-fab" style="display:flex;align-items:center;gap:14px;">
+      <div class="scan-fab-mini">
+        <div class="scan-fab-ring"></div>
+        <div class="scan-fab-ring delay"></div>
+        ${soccerBallSvg()}
+      </div>
+      <div>
+        <div class="stat-label">Escanear recibo</div>
+        <div class="stat-hint">Sube una foto y se carga solo</div>
+      </div>
     </div>
   </div>
 
@@ -1356,49 +1340,6 @@ function applyScanResults(){
   closeScanModal();
 }
 
-function setupFabDrag(wrapEl, btnEl){
-  let dragging = false;
-  let moved = false;
-  let startX = 0;
-  let startLeftPct = fabPositionPct;
-
-  function pctFromClientX(clientX){
-    const pct = (clientX / window.innerWidth) * 100;
-    return Math.min(94, Math.max(6, pct));
-  }
-
-  function onPointerDown(e){
-    dragging = true; moved = false;
-    startX = e.clientX;
-    startLeftPct = fabPositionPct;
-    wrapEl.classList.add('dragging');
-    btnEl.setPointerCapture && btnEl.setPointerCapture(e.pointerId);
-  }
-  function onPointerMove(e){
-    if(!dragging) return;
-    const dx = e.clientX - startX;
-    if(Math.abs(dx)>5) moved = true;
-    const newPct = pctFromClientX(startLeftPct/100*window.innerWidth + dx);
-    fabPositionPct = newPct;
-    wrapEl.style.left = newPct + '%';
-  }
-  function onPointerUp(e){
-    if(!dragging) return;
-    dragging = false;
-    wrapEl.classList.remove('dragging');
-    if(!moved){
-      openScanModal(); // fue un tap, no un arrastre — abre el escaneo
-    } else {
-      saveState(); // guarda la nueva posición del botón
-    }
-  }
-
-  btnEl.addEventListener('pointerdown', onPointerDown);
-  btnEl.addEventListener('pointermove', onPointerMove);
-  btnEl.addEventListener('pointerup', onPointerUp);
-  btnEl.addEventListener('pointercancel', onPointerUp);
-}
-
 /* ================= EVENTOS ================= */
 function attachEvents(){
   document.querySelectorAll('.tab').forEach(t=>{ t.onclick=()=>{ activeTab=t.dataset.tab; render(); }; });
@@ -1452,8 +1393,7 @@ function attachEvents(){
   if(pinBack) pinBack.onclick=()=>{ pinEntry=pinEntry.slice(0,-1); pinError=''; render(); };
   const btnScan=document.getElementById('btn-scan-receipt'); if(btnScan) btnScan.onclick=openScanModal;
   const btnScanFab=document.getElementById('btn-scan-fab');
-  const fabWrap=document.getElementById('scan-fab-wrap');
-  if(btnScanFab && fabWrap) setupFabDrag(fabWrap, btnScanFab);
+  if(btnScanFab) btnScanFab.onclick=openScanModal;
 
   document.querySelectorAll('[data-view-receipt]').forEach(card=>{
     card.onclick=()=>{ showReceiptDetail=card.dataset.viewReceipt; render(); };
