@@ -1249,7 +1249,7 @@ function dishModal(){
   </div>`;
 }
 
-/* ================= MODAL: ESCANEAR RECIBO (OCR local con Tesseract.js, sin backend) ================= */
+/* ================= MODAL: ESCANEAR RECIBO (lectura con Claude API vía Netlify Function) ================= */
 function openScanModal(){
   scanState='idle'; scanImageBase64=null; scanImageMediaType=null; scanExtracted=[]; scanErrorMsg='';
   scanSupplier=''; scanDate=localDateStr();
@@ -1400,6 +1400,15 @@ function fileToBase64(file){
     reader.readAsDataURL(file);
   });
 }
+
+/* ================================================================
+   DESDE AQUÍ: código del OCR viejo con Tesseract.js + parser regex.
+   YA NO SE USA — processReceiptImage() ahora llama a la Netlify
+   Function que usa Claude API. Se deja aquí sin borrar por si hay
+   que revertir rápido. Se puede eliminar todo este bloque (hasta
+   "FIN CÓDIGO TESSERACT" más abajo) una vez que confirmes que el
+   nuevo flujo funciona bien en producción.
+   ================================================================ */
 
 /* Umbral de Otsu: encuentra automáticamente el punto de corte blanco/negro
    que mejor separa el texto del fondo, sin importar cuán clara o sucia esté la foto. */
@@ -1633,6 +1642,7 @@ function parseReceiptText(text){
 
   return {supplier, date, items};
 }
+/* FIN CÓDIGO TESSERACT — todo lo de arriba desde "DESDE AQUÍ" ya no se usa */
 
 async function processReceiptImage(file){
   scanState='loading';
@@ -1643,23 +1653,27 @@ async function processReceiptImage(file){
     scanImageMediaType = compressed.mediaType;
     render();
 
-    await loadTesseract();
-    let ocrDataUrl;
+    // Manda la foto a nuestra Netlify Function, que a su vez le pregunta a
+    // Claude (con visión) qué dice la factura. La API key vive solo en el
+    // servidor de Netlify, nunca en este archivo ni en el navegador.
+    let response;
     try{
-      ocrDataUrl = await prepareOcrImage(file);
-    }catch(prepErr){
-      ocrDataUrl = 'data:'+scanImageMediaType+';base64,'+scanImageBase64;
-    }
-    let ocrResult;
-    try{
-      ocrResult = await Tesseract.recognize(ocrDataUrl, 'spa+eng');
-    }catch(ocrErr){
+      response = await fetch('/.netlify/functions/extract-receipt', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ imageBase64: scanImageBase64, mediaType: scanImageMediaType })
+      });
+    }catch(netErr){
       throw new Error(t('err_ocr_read'));
     }
-    const rawText = (ocrResult.data && ocrResult.data.text) || '';
-    if(!rawText.trim()){ throw new Error(t('err_no_text')); }
 
-    const parsed = parseReceiptText(rawText);
+    const parsed = await response.json();
+    if(!response.ok || parsed.error){
+      throw new Error(parsed.error || t('err_generic_receipt'));
+    }
+    if(!Array.isArray(parsed.items) || parsed.items.length===0){
+      throw new Error(t('err_no_text'));
+    }
 
     scanSupplier = parsed.supplier || '';
     scanDate = parsed.date || localDateStr();
@@ -1681,7 +1695,11 @@ async function processReceiptImage(file){
         totalPrice: typeof it.total_price==='number' ? it.total_price : parseFloat(it.total_price)||0,
         unit: it.unit || 'unidad',
         matchedIngId: matchedId,
-        qtyVerified: !!it.qtyVerified
+        // Reusa el mismo aviso visual de "revisa esto" que ya tenías para
+        // cantidades no verificadas, pero ahora basado en la confianza que
+        // Claude reporta para esa línea (baja = probable tachón, letra
+        // difícil, o algo que no pudo leer con seguridad).
+        qtyVerified: it.confidence !== 'baja'
       };
     });
 
