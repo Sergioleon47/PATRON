@@ -77,8 +77,6 @@
   .btn-primary:hover{background:var(--navy-soft);}
   .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
   .btn-ghost:hover{border-color:var(--navy);}
-  .btn-camera{background:var(--saffron);color:#3D2B00;}
-  .btn-camera:hover{opacity:.9;}
   .btn-sm{padding:6px 10px;font-size:12px;border-radius:8px;}
 
   .alert-banner{background:var(--tomato-soft);border:1px solid #EBC2B8;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:#8C3A29;font-size:13.5px;font-weight:600;}
@@ -97,14 +95,6 @@
   .link-btn:hover{text-decoration:underline;}
   .link-btn.danger{color:var(--tomato);}
 
-  /* MONTHLY SPEND */
-  .month-picker{display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:4px;}
-  .month-chip{flex-shrink:0;padding:8px 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink-soft);}
-  .month-chip.active{background:var(--navy);color:#fff;border-color:var(--navy);}
-  .bar-chart{display:flex;align-items:flex-end;gap:10px;height:110px;padding:10px 4px 0;}
-  .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
-  .bar-fill{width:100%;max-width:34px;border-radius:6px 6px 0 0;background:var(--navy);transition:height .6s cubic-bezier(0.22,1,0.36,1);}
-  .bar-month-label{font-size:10px;color:var(--ink-soft);margin-top:6px;font-family:'IBM Plex Mono';}
 
   /* DISH CARDS */
   .dish-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
@@ -245,7 +235,6 @@ let aliasMap = {}; // nombre normalizado del recibo -> ingredienteId, aprendido 
 
 let activeTab = 'dashboard';
 let lastRenderedTab = null;
-let selectedMonth = null; // 'YYYY-MM' or null = todos
 let showItemModal=false, showPurchaseModal=false, showDishModal=false, showScanModal=false, showReceiptDetail=null;
 let showPriceHistoryModal=false, priceHistoryIngId=null;
 let editingItem=null, editingDish=null;
@@ -384,7 +373,6 @@ function render(){
     <div class="view-container ${isTabSwitch ? 'view-anim' : ''}">
       ${activeTab==='dashboard' ? dashboardView() : ''}
       ${activeTab==='inventario' ? inventarioView() : ''}
-      ${activeTab==='compras' ? comprasView() : ''}
       ${activeTab==='recibos' ? recibosView() : ''}
       ${activeTab==='menu' ? (menuUnlocked ? menuView() : pinGateView()) : ''}
     </div>
@@ -411,7 +399,6 @@ function topbar(){
     <div class="tabs">
       <button class="tab ${activeTab==='dashboard'?'active':''}" data-tab="dashboard">Dashboard</button>
       <button class="tab ${activeTab==='inventario'?'active':''}" data-tab="inventario">Inventario</button>
-      <button class="tab ${activeTab==='compras'?'active':''}" data-tab="compras">Compras</button>
       <button class="tab ${activeTab==='recibos'?'active':''}" data-tab="recibos">Recibos</button>
       <button class="tab ${activeTab==='menu'?'active':''}" data-tab="menu">Menú</button>
     </div>
@@ -443,7 +430,6 @@ function dashboardView(){
     <div class="stat-card">
       <div class="stat-label">Gasto de ${monthLabel(thisMonthKey)}</div>
       <div class="stat-value saffron">${money(thisMonthSpend)}</div>
-      <div class="stat-hint">Ver detalle en Compras</div>
     </div>
     <div class="scan-card" id="btn-scan-fab" title="Escanear recibo" style="display:flex;align-items:center;justify-content:center;">
       <div class="scan-fab-mini scan-fab-mini-lg">
@@ -495,62 +481,6 @@ function inventarioView(){
       </tbody>
     </table>
   </div>`}
-  `;
-}
-
-/* ---------- COMPRAS (con vista mensual y escaneo de recibos) ---------- */
-function comprasView(){
-  const months = allMonths();
-  const activeMonth = selectedMonth || (months[0] || null);
-  const list = activeMonth ? purchasesForMonth(activeMonth) : purchases;
-  const sorted = [...list].sort((a,b)=>new Date(b.date)-new Date(a.date));
-
-  const last6 = months.slice(0,6).reverse();
-  const maxSpend = Math.max(...last6.map(m=>spendForMonth(m)), 1);
-
-  return `
-  <div class="section-head">
-    <div><h2>Compras</h2><p>Cada compra actualiza el costo del ingrediente automáticamente</p></div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn btn-camera" id="btn-scan-receipt">📷 Escanear recibo</button>
-      <button class="btn btn-primary" id="btn-new-purchase">+ Registrar compra</button>
-    </div>
-  </div>
-
-  ${months.length>0 ? `
-  <div class="section-head"><div><h2 style="font-size:15px;">Gasto por mes</h2><p>Así el dueño ve cuánto se va gastando mes a mes</p></div></div>
-  <div class="table-wrap" style="padding:16px 18px;">
-    <div class="bar-chart">
-      ${last6.map(m=>{
-        const spend = spendForMonth(m);
-        const h = Math.max((spend/maxSpend)*80, 4);
-        return `<div class="bar-col">
-          <div class="mono" style="font-size:10px;color:var(--ink-soft);margin-bottom:4px;">${money(spend)}</div>
-          <div class="bar-fill" style="height:${h}px;background:${m===activeMonth?'var(--navy)':'#B7C4CC'};"></div>
-          <div class="bar-month-label">${monthLabel(m)}</div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>
-  <div class="month-picker">
-    <div class="month-chip ${!selectedMonth || selectedMonth==='__all__'?'active':''}" data-month="__all__">Todos</div>
-    ${months.map(m=>`<div class="month-chip ${activeMonth===m && selectedMonth?'active':''}" data-month="${m}">${monthLabel(m)} &middot; ${money(spendForMonth(m))}</div>`).join('')}
-  </div>
-  ` : ''}
-
-  <div class="table-wrap">
-    ${sorted.length===0 ? emptyState('🧾','Sin compras en este período','Registra una compra o escanea un recibo.') :
-    sorted.map(p=>{
-      const ing = inventory.find(i=>i.id===p.ingId);
-      return `<div class="purchase-row">
-        <div class="purchase-left">
-          <div class="purchase-name">${ing?escapeHtml(ing.name):'Ingrediente eliminado'}</div>
-          <div class="purchase-meta">${escapeHtml(p.supplier)} &middot; ${p.date} &middot; ${p.qty} ${ing?escapeHtml(ing.unit):''} &middot; ${money(p.totalPrice/(p.qty||1))}/${ing?escapeHtml(ing.unit):''}</div>
-        </div>
-        <div class="purchase-amount">${money(p.totalPrice)}</div>
-      </div>`;
-    }).join('')}
-  </div>
   `;
 }
 
@@ -1342,7 +1272,6 @@ function attachEvents(){
   document.querySelectorAll('.tab').forEach(t=>{ t.onclick=()=>{ activeTab=t.dataset.tab; render(); }; });
 
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
-  const btnNewPurchase=document.getElementById('btn-new-purchase'); if(btnNewPurchase) btnNewPurchase.onclick=openPurchaseModal;
   const btnNewDish=document.getElementById('btn-new-dish'); if(btnNewDish) btnNewDish.onclick=()=>openDishModal(null);
   const btnLockMenu=document.getElementById('btn-lock-menu');
   if(btnLockMenu) btnLockMenu.onclick=()=>{ menuUnlocked=false; pinEntry=''; pinError=''; render(); };
@@ -1388,7 +1317,6 @@ function attachEvents(){
   });
   const pinBack=document.querySelector('[data-pin-back]');
   if(pinBack) pinBack.onclick=()=>{ pinEntry=pinEntry.slice(0,-1); pinError=''; render(); };
-  const btnScan=document.getElementById('btn-scan-receipt'); if(btnScan) btnScan.onclick=openScanModal;
   const btnScanFab=document.getElementById('btn-scan-fab');
   if(btnScanFab) btnScanFab.onclick=openScanModal;
 
@@ -1414,10 +1342,6 @@ function attachEvents(){
   document.querySelectorAll('[data-del-item]').forEach(b=>{ b.onclick=()=>{ inventory=inventory.filter(i=>i.id!==b.dataset.delItem); saveState(); render(); }; });
   document.querySelectorAll('[data-edit-dish]').forEach(b=>{ b.onclick=()=>openDishModal(dishes.find(d=>d.id===b.dataset.editDish)); });
   document.querySelectorAll('[data-del-dish]').forEach(b=>{ b.onclick=()=>{ dishes=dishes.filter(d=>d.id!==b.dataset.delDish); saveState(); render(); }; });
-
-  document.querySelectorAll('[data-month]').forEach(chip=>{
-    chip.onclick=()=>{ selectedMonth = chip.dataset.month==='__all__' ? '__all__' : chip.dataset.month; render(); };
-  });
 
   /* Modal ingrediente */
   const itemOverlay=document.getElementById('item-overlay');
