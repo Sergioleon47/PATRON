@@ -43,10 +43,11 @@
   .tab.active{background:var(--navy);color:#fff;}
   .tab:not(.active):hover{color:var(--ink);}
 
-  .scan-card{cursor:pointer;transition:transform .2s ease, box-shadow .2s ease;text-align:left;}
-  .scan-card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(32,33,36,0.1), 0 12px 28px rgba(32,33,36,0.12);}
-  .scan-card:active{transform:scale(0.98);}
-  .scan-fab-mini{width:52px;height:52px;flex-shrink:0;position:relative;}
+  .scan-card{cursor:pointer;}
+  .scan-fab-mini{width:52px;height:52px;flex-shrink:0;position:relative;transition:transform .25s ease;}
+  .scan-fab-mini-lg{width:76px;height:76px;}
+  .scan-card:hover .scan-fab-mini{transform:scale(1.07);}
+  .scan-card:active .scan-fab-mini{transform:scale(0.94);}
   .scan-fab-mini svg{position:relative;z-index:2;width:100%;height:100%;filter:drop-shadow(0 2px 5px rgba(32,33,36,0.25));}
   .scan-fab-ring{
     position:absolute;inset:0;border-radius:50%;background:rgba(52,168,83,0.35);
@@ -444,15 +445,11 @@ function dashboardView(){
       <div class="stat-value saffron">${money(thisMonthSpend)}</div>
       <div class="stat-hint">Ver detalle en Compras</div>
     </div>
-    <div class="stat-card scan-card" id="btn-scan-fab" style="display:flex;align-items:center;gap:14px;">
-      <div class="scan-fab-mini">
+    <div class="scan-card" id="btn-scan-fab" title="Escanear recibo" style="display:flex;align-items:center;justify-content:center;">
+      <div class="scan-fab-mini scan-fab-mini-lg">
         <div class="scan-fab-ring"></div>
         <div class="scan-fab-ring delay"></div>
         ${soccerBallSvg()}
-      </div>
-      <div>
-        <div class="stat-label">Escanear recibo</div>
-        <div class="stat-hint">Sube una foto y se carga solo</div>
       </div>
     </div>
   </div>
