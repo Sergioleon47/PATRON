@@ -282,7 +282,17 @@ let scanDuplicateOf=null; // receipt existente si se detecta posible duplicado
 let scanDuplicateConfirmed=false;
 let fabPositionPct = 50; // posición horizontal del botón de escaneo, 0-100% del ancho de pantalla
 
-const MENU_PIN = '1234'; // PIN del gerente — cambia este valor para definir el PIN real
+// PIN del gerente, guardado como hash SHA-256 (no en texto plano) para que no se lea directo
+// desde "ver código fuente". Esto sube la barrera casual pero NO es seguridad real: al ser
+// una app sin backend, cualquiera con conocimientos técnicos podría igual probar combinaciones
+// contra este hash. No guardes aquí nada que de verdad necesite protección fuerte.
+// Hash de '1234' (PIN de fábrica) — para cambiarlo, generá el SHA-256 del PIN nuevo y pegalo aquí.
+const MENU_PIN_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
+async function checkPin(pin){
+  const bytes = new TextEncoder().encode(pin);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('') === MENU_PIN_HASH;
+}
 let menuUnlocked = false;
 let pinEntry = '';
 let pinError = '';
@@ -302,6 +312,38 @@ let scanDate = new Date().toISOString().slice(0,10);
 /* ================= UTILIDADES ================= */
 function uid(p){return p+Math.random().toString(36).slice(2,9);}
 function money(n){return '$'+(isNaN(n)?'0.00':n.toFixed(2));}
+function escapeHtml(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ================= PERSISTENCIA (localStorage) ================= */
+const STORAGE_KEY = 'platocost_data_v1';
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      inventory, purchases, dishes, receipts, aliasMap, priceAlertThreshold, fabPositionPct
+    }));
+  }catch(e){
+    console.warn('No se pudo guardar en localStorage (¿espacio lleno?)', e);
+  }
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    if(Array.isArray(data.inventory)) inventory = data.inventory;
+    if(Array.isArray(data.purchases)) purchases = data.purchases;
+    if(Array.isArray(data.dishes)) dishes = data.dishes;
+    if(Array.isArray(data.receipts)) receipts = data.receipts;
+    if(data.aliasMap && typeof data.aliasMap==='object') aliasMap = data.aliasMap;
+    if(typeof data.priceAlertThreshold==='number') priceAlertThreshold = data.priceAlertThreshold;
+    if(typeof data.fabPositionPct==='number') fabPositionPct = data.fabPositionPct;
+  }catch(e){
+    console.warn('No se pudo leer localStorage', e);
+  }
+}
 function monthKey(dateStr){ return dateStr ? dateStr.slice(0,7) : ''; }
 function monthLabel(key){
   const [y,m] = key.split('-');
@@ -454,7 +496,7 @@ function dashboardView(){
       <thead><tr><th>Ingrediente</th><th>Stock actual</th><th>Mínimo</th><th>Estado</th></tr></thead>
       <tbody>${low.map(i=>{
         const s=stockStatus(i);
-        return `<tr><td style="font-weight:600;">${i.name}</td><td class="mono-cell">${i.currentStock} ${i.unit}</td><td class="mono-cell">${i.minStock} ${i.unit}</td><td><span class="badge" style="background:${s.bg};color:${s.color};">${s.label}</span></td></tr>`;
+        return `<tr><td style="font-weight:600;">${escapeHtml(i.name)}</td><td class="mono-cell">${i.currentStock} ${escapeHtml(i.unit)}</td><td class="mono-cell">${i.minStock} ${escapeHtml(i.unit)}</td><td><span class="badge" style="background:${s.bg};color:${s.color};">${s.label}</span></td></tr>`;
       }).join('')}</tbody>
     </table>`}
   </div>
@@ -466,8 +508,8 @@ function dashboardView(){
       const ing = inventory.find(i=>i.id===p.ingId);
       return `<div class="purchase-row">
         <div class="purchase-left">
-          <div class="purchase-name">${ing?ing.name:'Ingrediente eliminado'}</div>
-          <div class="purchase-meta">${p.supplier} &middot; ${p.date} &middot; ${p.qty} ${ing?ing.unit:''}</div>
+          <div class="purchase-name">${ing?escapeHtml(ing.name):'Ingrediente eliminado'}</div>
+          <div class="purchase-meta">${escapeHtml(p.supplier)} &middot; ${p.date} &middot; ${p.qty} ${ing?escapeHtml(ing.unit):''}</div>
         </div>
         <div class="purchase-amount">${money(p.totalPrice)}</div>
       </div>`;
@@ -491,14 +533,14 @@ function inventarioView(){
         ${inventory.map(i=>{
           const s=stockStatus(i); const pct=Math.min(stockPct(i),150);
           return `<tr>
-            <td style="font-weight:600;">${i.name} ${i.updated?'<span class="price-updated">precio actualizado</span>':''}</td>
-            <td style="color:var(--ink-soft);">${i.category}</td>
+            <td style="font-weight:600;">${escapeHtml(i.name)} ${i.updated?'<span class="price-updated">precio actualizado</span>':''}</td>
+            <td style="color:var(--ink-soft);">${escapeHtml(i.category)}</td>
             <td>
-              <div class="mono-cell">${i.currentStock} ${i.unit}</div>
+              <div class="mono-cell">${i.currentStock} ${escapeHtml(i.unit)}</div>
               <div class="stock-bar-wrap"><div class="stock-bar-fill" style="width:${Math.min(pct,100)}%;background:${s.color};"></div></div>
-              <div class="stock-label">mín. ${i.minStock} ${i.unit}</div>
+              <div class="stock-label">mín. ${i.minStock} ${escapeHtml(i.unit)}</div>
             </td>
-            <td class="mono-cell">${money(i.costPerUnit)}/${i.unit}</td>
+            <td class="mono-cell">${money(i.costPerUnit)}/${escapeHtml(i.unit)}</td>
             <td class="mono-cell" style="font-weight:700;">${money(i.currentStock*i.costPerUnit)}</td>
             <td><span class="badge" style="background:${s.bg};color:${s.color};">${s.label}</span></td>
             <td><button class="link-btn" data-edit-item="${i.id}">Editar</button><button class="link-btn danger" data-del-item="${i.id}">Eliminar</button></td>
@@ -556,8 +598,8 @@ function comprasView(){
       const ing = inventory.find(i=>i.id===p.ingId);
       return `<div class="purchase-row">
         <div class="purchase-left">
-          <div class="purchase-name">${ing?ing.name:'Ingrediente eliminado'}</div>
-          <div class="purchase-meta">${p.supplier} &middot; ${p.date} &middot; ${p.qty} ${ing?ing.unit:''} &middot; ${money(p.totalPrice/(p.qty||1))}/${ing?ing.unit:''}</div>
+          <div class="purchase-name">${ing?escapeHtml(ing.name):'Ingrediente eliminado'}</div>
+          <div class="purchase-meta">${escapeHtml(p.supplier)} &middot; ${p.date} &middot; ${p.qty} ${ing?escapeHtml(ing.unit):''} &middot; ${money(p.totalPrice/(p.qty||1))}/${ing?escapeHtml(ing.unit):''}</div>
         </div>
         <div class="purchase-amount">${money(p.totalPrice)}</div>
       </div>`;
@@ -579,7 +621,7 @@ function recibosView(){
       <div class="dish-card" style="cursor:pointer;" data-view-receipt="${r.id}">
         <img src="data:${r.mediaType};base64,${r.imageBase64}" style="width:100%;height:140px;object-fit:cover;">
         <div style="padding:14px 16px;">
-          <div style="font-weight:700;font-size:14px;">${r.supplier||'Proveedor sin nombre'}</div>
+          <div style="font-weight:700;font-size:14px;">${escapeHtml(r.supplier)||'Proveedor sin nombre'}</div>
           <div style="font-size:11.5px;color:var(--ink-soft);margin:3px 0 8px;">${r.date} &middot; ${r.itemCount} producto${r.itemCount!==1?'s':''}</div>
           <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--navy);font-size:15px;">${money(r.total)}</div>
         </div>
@@ -597,7 +639,7 @@ function alertSettingsModal(){
       <div class="sub">Define a partir de qué % de aumento quieres que la alerta se marque como fuerte al escanear un recibo</div>
       <div class="field">
         <label>Umbral de alerta (%)</label>
-        <input id="alert-threshold-input" type="number" min="1" max="100" step="1" value="${draftThreshold}">
+        <input id="alert-threshold-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftThreshold)}">
       </div>
       <div class="helper-note">Cualquier aumento se marca en amarillo. A partir de este % se marca en rojo, como algo que requiere revisión inmediata.</div>
       <div class="modal-actions">
@@ -614,14 +656,14 @@ function receiptDetailModal(){
   return `
   <div class="overlay" id="receipt-detail-overlay">
     <div class="modal wide">
-      <h3>${r.supplier||'Proveedor sin nombre'}</h3>
+      <h3>${escapeHtml(r.supplier)||'Proveedor sin nombre'}</h3>
       <div class="sub">${r.date} &middot; escaneado el ${new Date(r.createdAt).toLocaleDateString()}</div>
       <img class="receipt-preview" src="data:${r.mediaType};base64,${r.imageBase64}">
       <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;">Productos aplicados al inventario</label>
       ${r.appliedItems.map(it=>`
         <div class="matched-item" style="cursor:default;">
-          <div class="mi-top"><strong>${it.rawName}</strong><span>${money(it.totalPrice)}</span></div>
-          <div style="font-size:12px;color:var(--ink-soft);">${it.qty} ${it.unit} &middot; aplicado a: ${it.ingName}</div>
+          <div class="mi-top"><strong>${escapeHtml(it.rawName)}</strong><span>${money(it.totalPrice)}</span></div>
+          <div style="font-size:12px;color:var(--ink-soft);">${it.qty} ${escapeHtml(it.unit)} &middot; aplicado a: ${escapeHtml(it.ingName)}</div>
         </div>
       `).join('')}
       <div class="modal-actions">
@@ -683,7 +725,7 @@ function menuView(){
       const improved = mc.delta >= 0;
       return `<div class="dish-card">
         <div class="dish-top">
-          <div><div class="dish-name">${d.name}</div><div class="dish-cat">${d.category||'Sin categoría'}</div></div>
+          <div><div class="dish-name">${escapeHtml(d.name)}</div><div class="dish-cat">${escapeHtml(d.category)||'Sin categoría'}</div></div>
           ${gaugeSvg(pct)}
         </div>
         <div class="dish-mid">
@@ -693,7 +735,7 @@ function menuView(){
         <div class="recipe-list">
           ${d.items.map(it=>{
             const ing=inventory.find(i=>i.id===it.ingId);
-            return ing ? `<div class="recipe-item"><span>${ing.name}</span><span>${it.qty} ${ing.unit}</span></div>` : '';
+            return ing ? `<div class="recipe-item"><span>${escapeHtml(ing.name)}</span><span>${it.qty} ${escapeHtml(ing.unit)}</span></div>` : '';
           }).join('')}
         </div>
         <div class="margin-compare">
@@ -736,9 +778,9 @@ function itemModal(){
     <div class="modal">
       <h3>${editingItem?'Editar ingrediente':'Nuevo ingrediente'}</h3>
       <div class="sub">Peso o cantidad por unidad, y nivel mínimo para alertas</div>
-      <div class="field"><label>Nombre</label><input id="fi-name" type="text" value="${draftItem.name}" placeholder="Ej. Camarón mediano"></div>
+      <div class="field"><label>Nombre</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="Ej. Camarón mediano"></div>
       <div class="field-row">
-        <div class="field"><label>Categoría</label><input id="fi-cat" type="text" value="${draftItem.category}" placeholder="Ej. Proteínas"></div>
+        <div class="field"><label>Categoría</label><input id="fi-cat" type="text" value="${escapeHtml(draftItem.category)}" placeholder="Ej. Proteínas"></div>
         <div class="field"><label>Unidad</label>
           <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${u}</option>`).join('')}</select>
         </div>
@@ -765,7 +807,7 @@ function purchaseModal(){
     <div class="modal">
       <h3>Registrar compra</h3>
       <div class="sub">Actualiza el stock y el precio de costo automáticamente</div>
-      <div class="field"><label>Ingrediente</label><select id="pf-ing">${inventory.map(i=>`<option value="${i.id}">${i.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Ingrediente</label><select id="pf-ing">${inventory.map(i=>`<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}</select></div>
       <div class="field-row">
         <div class="field"><label>Cantidad comprada</label><input id="pf-qty" type="number" step="0.01" placeholder="Ej. 25"></div>
         <div class="field"><label>Precio total pagado</label><input id="pf-price" type="number" step="0.01" placeholder="Ej. 85.00"></div>
@@ -795,21 +837,21 @@ function dishModal(){
     <div class="modal">
       <h3>${editingDish?'Editar plato':'Nuevo plato'}</h3>
       <div class="sub">Nombre, precio de venta y receta con pesos/cantidades</div>
-      <div class="field"><label>Nombre del plato</label><input id="f-name" type="text" value="${draftDish.name}" placeholder="Ej. Tacos de camarón"></div>
+      <div class="field"><label>Nombre del plato</label><input id="f-name" type="text" value="${escapeHtml(draftDish.name)}" placeholder="Ej. Tacos de camarón"></div>
       <div class="field-row">
-        <div class="field"><label>Categoría</label><input id="f-cat" type="text" value="${draftDish.category}" placeholder="Ej. Platos fuertes"></div>
+        <div class="field"><label>Categoría</label><input id="f-cat" type="text" value="${escapeHtml(draftDish.category)}" placeholder="Ej. Platos fuertes"></div>
         <div class="field"><label>Precio de venta</label><input id="f-price" type="number" step="0.01" value="${draftDish.price}" placeholder="0.00"></div>
       </div>
       <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;">Ingredientes de la receta</label>
       <div class="ing-list-mini" id="ing-list-mini">
         ${draftDish.items.length===0 ? '<div style="font-size:12.5px;color:var(--ink-soft);padding:6px 2px;">Aún no has agregado ingredientes.</div>' : draftDish.items.map((it,idx)=>{
           const ing = inventory.find(i=>i.id===it.ingId);
-          return ing ? `<div class="ing-list-mini-item"><span>${ing.name} — ${it.qty} ${ing.unit}</span><button class="remove-x" data-remove-item="${idx}">✕</button></div>` : '';
+          return ing ? `<div class="ing-list-mini-item"><span>${escapeHtml(ing.name)} — ${it.qty} ${escapeHtml(ing.unit)}</span><button class="remove-x" data-remove-item="${idx}">✕</button></div>` : '';
         }).join('')}
       </div>
       ${availableIngs.length>0 ? `
       <div class="add-ing-row">
-        <div class="field"><label>Ingrediente</label><select id="add-ing-select">${availableIngs.map(i=>`<option value="${i.id}">${i.name}</option>`).join('')}</select></div>
+        <div class="field"><label>Ingrediente</label><select id="add-ing-select">${availableIngs.map(i=>`<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}</select></div>
         <div class="field" style="max-width:90px;"><label>Peso/cant.</label><input id="add-ing-qty" type="number" step="0.01" placeholder="0.0"></div>
         <button class="btn btn-ghost btn-sm" id="btn-add-item">Agregar</button>
       </div>` : `<div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;">Todos los ingredientes del inventario ya están en esta receta.</div>`}
@@ -821,7 +863,7 @@ function dishModal(){
   </div>`;
 }
 
-/* ================= MODAL: ESCANEAR RECIBO (visión real vía API de Claude) ================= */
+/* ================= MODAL: ESCANEAR RECIBO (OCR local con Tesseract.js, sin backend) ================= */
 function openScanModal(){
   scanState='idle'; scanImageBase64=null; scanImageMediaType=null; scanExtracted=[]; scanErrorMsg='';
   scanSupplier=''; scanDate=new Date().toISOString().slice(0,10);
@@ -848,22 +890,22 @@ function scanModal(){
 
       ${scanImageBase64 ? `<img class="receipt-preview" src="data:${scanImageMediaType};base64,${scanImageBase64}">` : ''}
 
-      ${scanState==='loading' ? `<div class="scan-status"><div class="spinner"></div> Leyendo el recibo con IA...</div>` : ''}
+      ${scanState==='loading' ? `<div class="scan-status"><div class="spinner"></div> Leyendo el texto del recibo (puede tardar unos segundos)...</div>` : ''}
       ${scanState==='error' ? `<div class="scan-error">⚠ ${scanErrorMsg}</div>` : ''}
       ${scanState==='error' ? `<div class="helper-note" style="margin-top:-4px;">Tip: si la conexión falla en vivo, puedes registrar la compra manualmente y seguir con la demo.</div>` : ''}
 
       ${scanState==='matched' ? `
         ${scanDuplicateOf ? `
         <div class="scan-error" style="background:var(--saffron-soft);color:#8A6100;">
-          ⚠ Ya existe un recibo de <strong>${scanDuplicateOf.supplier||'este proveedor'}</strong> el ${scanDuplicateOf.date} por un total similar (${money(scanDuplicateOf.total)}). Podría ser el mismo recibo escaneado dos veces.
+          ⚠ Ya existe un recibo de <strong>${escapeHtml(scanDuplicateOf.supplier)||'este proveedor'}</strong> el ${scanDuplicateOf.date} por un total similar (${money(scanDuplicateOf.total)}). Podría ser el mismo recibo escaneado dos veces.
           <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-weight:600;font-size:12.5px;cursor:pointer;">
             <input type="checkbox" id="scan-dup-confirm" ${scanDuplicateConfirmed?'checked':''}> Sí, es una compra distinta — aplicar de todos modos
           </label>
         </div>` : ''}
 
         <div class="field-row">
-          <div class="field"><label>Proveedor</label><input id="scan-supplier" type="text" value="${scanSupplier}" placeholder="Ej. US Foods"></div>
-          <div class="field"><label>Fecha</label><input id="scan-date" type="date" value="${scanDate}"></div>
+          <div class="field"><label>Proveedor</label><input id="scan-supplier" type="text" value="${escapeHtml(scanSupplier)}" placeholder="Ej. US Foods"></div>
+          <div class="field"><label>Fecha</label><input id="scan-date" type="date" value="${escapeHtml(scanDate)}"></div>
         </div>
 
         ${(()=>{
@@ -891,18 +933,18 @@ function scanModal(){
               // Cualquier aumento de precio genera alerta — la severidad visual escala con el tamaño del aumento
               const strong = diffPct>=priceAlertThreshold;
               priceAlert = `<div style="font-size:11px;font-weight:700;color:${strong?'#B23A48':'#B8860B'};background:${strong?'var(--tomato-soft)':'var(--saffron-soft)'};padding:6px 8px;border-radius:6px;margin-top:8px;">
-                ▲ Precio de proveedor subió ${diffPct.toFixed(0)}% vs. costo actual (${money(matchedIng.costPerUnit)}/${matchedIng.unit} → ${money(newUnitCost)}/${matchedIng.unit})${strong?' — confirma que la lectura sea correcta':''}
+                ▲ Precio de proveedor subió ${diffPct.toFixed(0)}% vs. costo actual (${money(matchedIng.costPerUnit)}/${escapeHtml(matchedIng.unit)} → ${money(newUnitCost)}/${escapeHtml(matchedIng.unit)})${strong?' — confirma que la lectura sea correcta':''}
               </div>`;
             } else if(diffPct<-0.5){
               priceAlert = `<div style="font-size:11px;font-weight:700;color:var(--basil);background:var(--basil-soft);padding:6px 8px;border-radius:6px;margin-top:8px;">
-                ▼ Precio bajó ${Math.abs(diffPct).toFixed(0)}% vs. costo actual (${money(matchedIng.costPerUnit)}/${matchedIng.unit} → ${money(newUnitCost)}/${matchedIng.unit})
+                ▼ Precio bajó ${Math.abs(diffPct).toFixed(0)}% vs. costo actual (${money(matchedIng.costPerUnit)}/${escapeHtml(matchedIng.unit)} → ${money(newUnitCost)}/${escapeHtml(matchedIng.unit)})
               </div>`;
             }
           }
           return `
           <div class="matched-item" style="${isUnrecognized?'border-color:#EBC2B8;background:#FBF3F1;':''}">
             <div class="mi-top">
-              <strong>${item.rawName}</strong>
+              <input data-scan-name="${idx}" type="text" value="${escapeHtml(item.rawName)}" placeholder="Nombre del producto" style="flex:1;border:none;background:transparent;font-weight:700;color:var(--ink);font-size:13px;padding:2px 0;">
               <span style="display:flex;align-items:center;gap:8px;">
                 ${money(item.totalPrice)}
                 <button class="remove-x" data-remove-scan-item="${idx}" title="Eliminar este producto">✕</button>
@@ -912,7 +954,7 @@ function scanModal(){
             <div class="mi-fields">
               <select data-scan-match="${idx}" style="flex:2;">
                 <option value="__new__" ${item.matchedIngId==='__new__'?'selected':''}>➕ Agregar como ingrediente nuevo</option>
-                ${inventory.map(i=>`<option value="${i.id}" ${item.matchedIngId===i.id?'selected':''}>${i.name}</option>`).join('')}
+                ${inventory.map(i=>`<option value="${i.id}" ${item.matchedIngId===i.id?'selected':''}>${escapeHtml(i.name)}</option>`).join('')}
               </select>
               <input data-scan-qty="${idx}" type="number" step="0.01" value="${item.qty}" style="flex:1;" placeholder="Cant.">
               <input data-scan-price="${idx}" type="number" step="0.01" value="${item.totalPrice}" style="flex:1;" placeholder="Precio">
@@ -920,7 +962,8 @@ function scanModal(){
             ${priceAlert}
           </div>`;
         }).join('')}
-        ${scanExtracted.length===0 ? `<div style="font-size:12.5px;color:var(--ink-soft);padding:10px 2px;">No quedan productos por confirmar — elimínalos todos y no habrá nada que aplicar.</div>` : ''}
+        ${scanExtracted.length===0 ? `<div style="font-size:12.5px;color:var(--ink-soft);padding:10px 2px;">No quedan productos por confirmar. El lector de texto no es perfecto — si no detectó algo, agrégalo a mano.</div>` : ''}
+        <button class="btn btn-ghost btn-sm" id="btn-add-scan-item" style="margin-top:4px;">+ Agregar producto a mano</button>
       ` : ''}
 
       <div class="modal-actions">
@@ -933,9 +976,9 @@ function scanModal(){
 }
 
 function fileToBase64(file){
-  // Redimensiona/comprime la foto antes de enviarla — las fotos de celular pesan
-  // varios MB y eso hace la llamada lenta o puede fallar. Bajamos a un tamaño
-  // que Claude lee perfectamente bien y que carga rápido en vivo.
+  // Redimensiona/comprime la foto antes de procesarla — las fotos de celular pesan
+  // varios MB y eso hace el OCR lento o puede fallar. Bajamos a un tamaño que se
+  // lee bien y carga rápido, y además ocupa menos espacio al guardarse en el historial.
   return new Promise((resolve,reject)=>{
     const reader = new FileReader();
     reader.onload = ()=>{
@@ -963,6 +1006,92 @@ function fileToBase64(file){
   });
 }
 
+/* Carga Tesseract.js (OCR gratis en el navegador) solo la primera vez que se usa,
+   igual que el patrón ya usado para OCR de recibos en Nudgy. No requiere API key
+   ni backend, así que funciona igual en local, en Netlify o donde sea. */
+let tesseractLoadPromise = null;
+function loadTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  if(tesseractLoadPromise) return tesseractLoadPromise;
+  tesseractLoadPromise = new Promise((resolve, reject)=>{
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    script.onload = ()=>resolve();
+    script.onerror = ()=>{ tesseractLoadPromise=null; reject(new Error('No se pudo cargar el lector de texto — revisa tu conexión e intenta de nuevo')); };
+    document.head.appendChild(script);
+  });
+  return tesseractLoadPromise;
+}
+
+/* Convierte "1.234,56" o "1,234.56" a número usando el último separador como decimal */
+function normalizeReceiptNumber(str){
+  let s = String(str).trim();
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  if(lastComma>-1 && lastDot>-1){
+    s = lastComma>lastDot ? s.replace(/\./g,'').replace(',','.') : s.replace(/,/g,'');
+  } else if(lastComma>-1){
+    s = s.replace(',','.');
+  }
+  return parseFloat(s);
+}
+
+/* Líneas que casi seguro NO son un producto (totales, impuestos, encabezados, etc.) */
+const RECEIPT_LINE_BLACKLIST = /total|subtotal|iva|impuesto|\btax\b|cambio|efectivo|\bcash\b|change|gracias|thank|factura|invoice|recibo|receipt|ticket|fecha|\bdate\b|tel[eé]fono|\bphone\b|direcci[oó]n|address|cliente|customer|\bcaja\b|cashier|atendido|art[ií]culo|cant\.|\bqty\b|precio|\bprice\b|www\.|http/i;
+
+/* Parseo heurístico de recibo a partir del texto plano que devuelve el OCR.
+   No es tan preciso como una IA que "ve" la imagen — por eso cada producto
+   queda editable antes de aplicarse, y se puede agregar uno a mano si el
+   OCR no detectó nada. */
+function parseReceiptText(text){
+  const lines = text.split('\n').map(l=>l.trim()).filter(l=>l.length>1);
+
+  let date = '';
+  const isoMatch = text.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  const dmyMatch = text.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/);
+  if(isoMatch){
+    date = isoMatch[0];
+  } else if(dmyMatch){
+    let [, d, m, y] = dmyMatch;
+    if(y.length===2) y = '20'+y;
+    d = d.padStart(2,'0'); m = m.padStart(2,'0');
+    if(+m>=1 && +m<=12 && +d>=1 && +d<=31) date = `${y}-${m}-${d}`;
+  }
+
+  let supplier = '';
+  for(const line of lines.slice(0,5)){
+    if(/[a-zA-ZñÑáéíóúÁÉÍÓÚ]{3,}/.test(line) && !RECEIPT_LINE_BLACKLIST.test(line) && !/^\d+$/.test(line)){
+      const clean = line.replace(/[^\wñÑáéíóúÁÉÍÓÚ\s.&-]/g,'').trim();
+      if(clean){ supplier = clean; break; }
+    }
+  }
+
+  const priceAtEnd = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*$/;
+  const leadingQty = /^(\d{1,3}(?:[.,]\d{1,3})?)\s*[xX]?\s+/;
+  const items = [];
+  for(const line of lines){
+    if(RECEIPT_LINE_BLACKLIST.test(line)) continue;
+    const priceMatch = line.match(priceAtEnd);
+    if(!priceMatch) continue;
+    const price = normalizeReceiptNumber(priceMatch[1]);
+    if(!price || price<=0 || price>100000) continue;
+    let rest = line.slice(0, priceMatch.index).trim();
+    rest = rest.replace(/[.\-·•]{2,}/g,' ').replace(/\s{2,}/g,' ').trim();
+    let qty = 1;
+    const qtyMatch = rest.match(leadingQty);
+    if(qtyMatch){
+      const q = normalizeReceiptNumber(qtyMatch[1]);
+      if(q>0 && q<1000){ qty = q; rest = rest.slice(qtyMatch[0].length).trim(); }
+    }
+    const name = rest.replace(/^[^a-zA-ZñÑáéíóúÁÉÍÓÚ]*/,'').trim();
+    if(name.length<2) continue;
+    items.push({name, quantity:qty, unit:'unidad', total_price:price});
+    if(items.length>=40) break;
+  }
+
+  return {supplier, date, items};
+}
+
 async function processReceiptImage(file){
   scanState='loading';
   scanErrorMsg='';
@@ -972,54 +1101,21 @@ async function processReceiptImage(file){
     scanImageMediaType = compressed.mediaType;
     render();
 
-    const prompt = `Eres un asistente que lee recibos de compra de proveedores de restaurantes. Analiza la imagen del recibo y devuelve SOLO un objeto JSON (sin markdown, sin texto adicional) con esta forma exacta:
-{
-  "supplier": "nombre del proveedor si se ve, o vacío",
-  "date": "YYYY-MM-DD si se ve, o vacío",
-  "items": [
-    {"name": "nombre del producto tal como aparece", "quantity": numero, "unit": "lb|kg|oz|g|ml|l|unidad", "total_price": numero}
-  ]
-}
-Si un campo no es visible, usa tu mejor estimación razonable o deja el string vacío. quantity y total_price deben ser números (no strings). Responde únicamente el JSON.`;
-
-    let response;
+    await loadTesseract();
+    const dataUrl = 'data:'+scanImageMediaType+';base64,'+scanImageBase64;
+    let ocrResult;
     try{
-      response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 1500,
-          messages: [{
-            role: "user",
-            content: [
-              {type:"image", source:{type:"base64", media_type:scanImageMediaType, data:scanImageBase64}},
-              {type:"text", text:prompt}
-            ]
-          }]
-        })
-      });
-    }catch(networkErr){
-      throw new Error('Sin conexión a internet — revisa el wifi/datos e intenta de nuevo');
+      ocrResult = await Tesseract.recognize(dataUrl, 'spa+eng');
+    }catch(ocrErr){
+      throw new Error('No se pudo leer el texto de la imagen — intenta con una foto más clara y bien iluminada');
     }
+    const rawText = (ocrResult.data && ocrResult.data.text) || '';
+    if(!rawText.trim()){ throw new Error('No se detectó texto en la imagen — intenta con una foto más clara y bien iluminada'); }
 
-    if(!response.ok){
-      if(response.status===429) throw new Error('Demasiadas solicitudes seguidas — espera unos segundos e intenta de nuevo');
-      throw new Error('El servicio de lectura no respondió correctamente (código '+response.status+')');
-    }
-    const data = await response.json();
-    const textBlock = (data.content||[]).find(b=>b.type==='text');
-    if(!textBlock){ throw new Error('No se pudo leer el contenido del recibo'); }
-
-    let clean = textBlock.text.trim().replace(/^```json/,'').replace(/^```/,'').replace(/```$/,'').trim();
-    let parsed;
-    try{ parsed = JSON.parse(clean); }
-    catch(e){ throw new Error('No se pudo interpretar el recibo — intenta con una foto más clara'); }
-
-    if(!parsed.items || parsed.items.length===0){ throw new Error('No se detectaron productos en la imagen'); }
+    const parsed = parseReceiptText(rawText);
 
     scanSupplier = parsed.supplier || '';
-    scanDate = parsed.date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : new Date().toISOString().slice(0,10);
+    scanDate = parsed.date || new Date().toISOString().slice(0,10);
 
     scanExtracted = parsed.items.map(it=>{
       const nameLower = (it.name||'').toLowerCase().trim();
@@ -1064,7 +1160,7 @@ function applyScanResults(){
 
   const appliedItems = [];
   scanExtracted.forEach(item=>{
-    if(item.qty<=0 || item.totalPrice<=0) return;
+    if(item.qty<=0 || item.totalPrice<=0 || !item.rawName || !item.rawName.trim()) return;
     let ingId = item.matchedIngId;
     let ingName = '';
     if(ingId==='__new__'){
@@ -1096,6 +1192,7 @@ function applyScanResults(){
       itemCount: appliedItems.length, appliedItems, createdAt: new Date().toISOString()
     });
   }
+  saveState();
   closeScanModal();
 }
 
@@ -1131,6 +1228,8 @@ function setupFabDrag(wrapEl, btnEl){
     wrapEl.classList.remove('dragging');
     if(!moved){
       openScanModal(); // fue un tap, no un arrastre — abre el escaneo
+    } else {
+      saveState(); // guarda la nueva posición del botón
     }
   }
 
@@ -1161,6 +1260,7 @@ function attachEvents(){
     if(saveAlertBtn) saveAlertBtn.onclick=()=>{
       const val=parseFloat(document.getElementById('alert-threshold-input').value);
       if(val>0) priceAlertThreshold=val;
+      saveState();
       showAlertSettingsModal=false; render();
     };
   }
@@ -1171,15 +1271,19 @@ function attachEvents(){
       pinEntry += btn.dataset.pinDigit;
       pinError='';
       if(pinEntry.length===4){
-        if(pinEntry===MENU_PIN){
-          menuUnlocked=true; pinEntry=''; pinError='';
-        } else {
-          pinError='PIN incorrecto — intenta de nuevo';
-          const wrongPin=pinEntry;
-          render();
-          setTimeout(()=>{ if(pinEntry===wrongPin){ pinEntry=''; render(); } }, 500);
-          return;
-        }
+        const attempt=pinEntry;
+        checkPin(attempt).then(ok=>{
+          if(pinEntry!==attempt) return; // el usuario ya borró/reinició mientras se verificaba
+          if(ok){
+            menuUnlocked=true; pinEntry=''; pinError='';
+            render();
+          } else {
+            pinError='PIN incorrecto — intenta de nuevo';
+            render();
+            setTimeout(()=>{ if(pinEntry===attempt){ pinEntry=''; render(); } }, 500);
+          }
+        });
+        return;
       }
       render();
     };
@@ -1202,9 +1306,9 @@ function attachEvents(){
   }
 
   document.querySelectorAll('[data-edit-item]').forEach(b=>{ b.onclick=()=>openItemModal(inventory.find(i=>i.id===b.dataset.editItem)); });
-  document.querySelectorAll('[data-del-item]').forEach(b=>{ b.onclick=()=>{ inventory=inventory.filter(i=>i.id!==b.dataset.delItem); render(); }; });
+  document.querySelectorAll('[data-del-item]').forEach(b=>{ b.onclick=()=>{ inventory=inventory.filter(i=>i.id!==b.dataset.delItem); saveState(); render(); }; });
   document.querySelectorAll('[data-edit-dish]').forEach(b=>{ b.onclick=()=>openDishModal(dishes.find(d=>d.id===b.dataset.editDish)); });
-  document.querySelectorAll('[data-del-dish]').forEach(b=>{ b.onclick=()=>{ dishes=dishes.filter(d=>d.id!==b.dataset.delDish); render(); }; });
+  document.querySelectorAll('[data-del-dish]').forEach(b=>{ b.onclick=()=>{ dishes=dishes.filter(d=>d.id!==b.dataset.delDish); saveState(); render(); }; });
 
   document.querySelectorAll('[data-month]').forEach(chip=>{
     chip.onclick=()=>{ selectedMonth = chip.dataset.month==='__all__' ? '__all__' : chip.dataset.month; render(); };
@@ -1229,6 +1333,7 @@ function attachEvents(){
       };
       if(editingItem){ const idx=inventory.findIndex(i=>i.id===editingItem); inventory[idx]=item; }
       else inventory.push(item);
+      saveState();
       closeItemModal();
     };
   }
@@ -1248,6 +1353,7 @@ function attachEvents(){
       purchases.push({id:uid('p'), ingId, qty, totalPrice, supplier, date});
       const ing=inventory.find(i=>i.id===ingId);
       if(ing){ ing.currentStock+=qty; ing.costPerUnit=totalPrice/qty; ing.updated=true; }
+      saveState();
       closePurchaseModal();
     };
   }
@@ -1274,6 +1380,7 @@ function attachEvents(){
       if(!draftDish.name || !draftDish.price) return;
       if(editingDish){ const idx=dishes.findIndex(d=>d.id===editingDish); dishes[idx]=draftDish; }
       else dishes.push(draftDish);
+      saveState();
       closeDishModal();
     };
   }
@@ -1296,6 +1403,9 @@ function attachEvents(){
     const fallbackBtn=document.getElementById('btn-fallback-manual');
     if(fallbackBtn) fallbackBtn.onclick=()=>{ closeScanModal(); openPurchaseModal(); };
 
+    document.querySelectorAll('[data-scan-name]').forEach(inp=>{
+      inp.onchange=()=>{ scanExtracted[parseInt(inp.dataset.scanName)].rawName=inp.value; render(); };
+    });
     document.querySelectorAll('[data-scan-match]').forEach(sel=>{
       sel.onchange=()=>{ scanExtracted[parseInt(sel.dataset.scanMatch)].matchedIngId=sel.value; render(); };
     });
@@ -1308,6 +1418,11 @@ function attachEvents(){
     document.querySelectorAll('[data-remove-scan-item]').forEach(b=>{
       b.onclick=()=>{ scanExtracted.splice(parseInt(b.dataset.removeScanItem),1); render(); };
     });
+    const addScanItemBtn=document.getElementById('btn-add-scan-item');
+    if(addScanItemBtn) addScanItemBtn.onclick=()=>{
+      scanExtracted.push({rawName:'', qty:1, totalPrice:0, unit:'unidad', matchedIngId:'__new__'});
+      render();
+    };
 
     const supplierInp=document.getElementById('scan-supplier');
     if(supplierInp) supplierInp.oninput=(e)=>scanSupplier=e.target.value;
@@ -1325,6 +1440,7 @@ function closeItemModal(){ showItemModal=false; editingItem=null; draftItem=null
 function closePurchaseModal(){ showPurchaseModal=false; render(); }
 function closeDishModal(){ showDishModal=false; editingDish=null; draftDish=null; render(); }
 
+loadState();
 render();
 </script>
 </body>
