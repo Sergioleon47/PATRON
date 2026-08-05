@@ -28,7 +28,10 @@
     to{opacity:1;transform:translateY(0);}
   }
 
-  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px;flex-wrap:wrap;gap:14px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
+  .topbar .brand{order:1;}
+  .topbar .tabs{order:2;}
+  .topbar .lang-toggle{order:3;}
   .brand{display:flex;align-items:center;gap:2px;}
   .brand-mark{
     width:42px;height:42px;border-radius:11px;
@@ -240,8 +243,10 @@
   .mi-fields select, .mi-fields input{padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:#fff;}
 
   @media (max-width:720px){
-    #app{padding:20px 14px 70px;}
-    .topbar{flex-direction:column;align-items:flex-start;}
+    #app{padding:16px 14px 70px;}
+    .topbar{margin-bottom:16px;row-gap:10px;}
+    .topbar .lang-toggle{order:2;}
+    .topbar .tabs{order:3;}
     .tabs{width:100%;}
     .tab{flex:1;text-align:center;}
     .table-wrap{overflow-x:auto;}
@@ -253,9 +258,10 @@
   }
 
   @media (max-width:520px){
-    .grid-summary{grid-template-columns:1fr;}
+    .grid-summary{grid-template-columns:1fr;gap:10px;margin-bottom:16px;}
     .month-nav-head{flex-wrap:wrap;row-gap:8px;}
     .stat-label{white-space:normal;}
+    .scan-card{padding:6px 0;}
 
     /* Tabla de inventario: en vez de forzar scroll horizontal, se esconde la columna
        Categoría (se muestra como subtítulo bajo el nombre) y la de Unidad (ya va
@@ -659,15 +665,13 @@ function topbar(){
         <div class="brand-name">ATRON</div>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <div class="tabs">
-        <button class="tab ${activeTab==='dashboard'?'active':''}" data-tab="dashboard">${t('tab_dashboard')}</button>
-        <button class="tab ${activeTab==='inventario'?'active':''}" data-tab="inventario">${t('tab_inventory')}</button>
-        <button class="tab ${activeTab==='recibos'?'active':''}" data-tab="recibos">${t('tab_receipts')}</button>
-        <button class="tab ${activeTab==='menu'?'active':''}" data-tab="menu">${t('tab_menu')}</button>
-      </div>
-      <button class="lang-toggle" id="btn-lang-toggle" title="${uiLang==='es'?'Switch to English':'Cambiar a español'}">${uiLang==='es'?'EN':'ES'}</button>
+    <div class="tabs">
+      <button class="tab ${activeTab==='dashboard'?'active':''}" data-tab="dashboard">${t('tab_dashboard')}</button>
+      <button class="tab ${activeTab==='inventario'?'active':''}" data-tab="inventario">${t('tab_inventory')}</button>
+      <button class="tab ${activeTab==='recibos'?'active':''}" data-tab="recibos">${t('tab_receipts')}</button>
+      <button class="tab ${activeTab==='menu'?'active':''}" data-tab="menu">${t('tab_menu')}</button>
     </div>
+    <button class="lang-toggle" id="btn-lang-toggle" title="${uiLang==='es'?'Switch to English':'Cambiar a español'}">${uiLang==='es'?'EN':'ES'}</button>
   </div>`;
 }
 
