@@ -102,7 +102,6 @@
   td{padding:12px 16px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle;}
   tr:last-child td{border-bottom:none;}
   td.mono-cell{font-family:'IBM Plex Mono';}
-  .cell-sub{display:none;}
 
   .price-updated{display:inline-block;background:var(--basil-soft);color:var(--basil);font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:6px;}
 
@@ -234,11 +233,9 @@
        apilan si no entran en una línea. Escopado con :not(.scroll-list) para no afectar
        la tabla de últimas compras del Dashboard, que tiene sus propias columnas. */
     .table-wrap:not(.scroll-list) table{table-layout:fixed;}
-    .table-wrap:not(.scroll-list) th:nth-child(2), .table-wrap:not(.scroll-list) td:nth-child(2),
-    .table-wrap:not(.scroll-list) th:nth-child(3), .table-wrap:not(.scroll-list) td:nth-child(3){display:none;}
+    .table-wrap:not(.scroll-list) th:nth-child(2), .table-wrap:not(.scroll-list) td:nth-child(2){display:none;}
     th, td{padding:10px 8px;font-size:12.5px;}
     td:last-child{white-space:normal;}
-    .cell-sub{display:block;font-size:11px;font-weight:400;color:var(--ink-soft);margin-top:2px;}
     .link-btn{padding:4px 5px;font-size:11.5px;}
   }
 </style>
@@ -249,13 +246,13 @@
 <script>
 /* ================= ESTADO INICIAL ================= */
 let inventory = [
-  {id:'i1', name:'Chicken breast', category:'Proteins', unit:'lb', costPerUnit:2.125, updated:false, qtyOnHand:0},
-  {id:'i2', name:'Medium shrimp', category:'Proteins', unit:'lb', costPerUnit:8.50, updated:false, qtyOnHand:0},
-  {id:'i3', name:'Mozzarella cheese', category:'Dairy', unit:'lb', costPerUnit:3.80, updated:false, qtyOnHand:0},
-  {id:'i4', name:'Tomato', category:'Vegetables', unit:'lb', costPerUnit:0.90, updated:false, qtyOnHand:0},
-  {id:'i5', name:'Olive oil', category:'Pantry', unit:'oz', costPerUnit:0.1875, updated:false, qtyOnHand:0},
-  {id:'i6', name:'Flour', category:'Pantry', unit:'lb', costPerUnit:0.56, updated:false, qtyOnHand:0},
-  {id:'i7', name:'Flour tortilla', category:'Pantry', unit:'unidad', costPerUnit:0.30, updated:false, qtyOnHand:0},
+  {id:'i1', name:'Chicken breast', unit:'lb', costPerUnit:2.125, updated:false, qtyOnHand:0},
+  {id:'i2', name:'Medium shrimp', unit:'lb', costPerUnit:8.50, updated:false, qtyOnHand:0},
+  {id:'i3', name:'Mozzarella cheese', unit:'lb', costPerUnit:3.80, updated:false, qtyOnHand:0},
+  {id:'i4', name:'Tomato', unit:'lb', costPerUnit:0.90, updated:false, qtyOnHand:0},
+  {id:'i5', name:'Olive oil', unit:'oz', costPerUnit:0.1875, updated:false, qtyOnHand:0},
+  {id:'i6', name:'Flour', unit:'lb', costPerUnit:0.56, updated:false, qtyOnHand:0},
+  {id:'i7', name:'Flour tortilla', unit:'unidad', costPerUnit:0.30, updated:false, qtyOnHand:0},
 ];
 
 let purchases = [
@@ -342,7 +339,7 @@ const I18N = {
     empty_dishes_title:'Aún no tienes platos', empty_dishes_sub:'Agrega tu primer plato del menú.',
     inv_title:'Inventario', inv_sub:'Ingredientes y su costo actual por unidad, para calcular el costo de cada plato',
     btn_new_purchase:'+ Registrar compra', btn_new_item:'+ Nuevo ingrediente',
-    th_ingredient:'Ingrediente', th_category:'Categoría', th_unit:'Unidad', th_cost_unit:'Costo/unidad', th_stock:'En stock', lbl_stock:'Cantidad en stock',
+    th_ingredient:'Ingrediente', th_unit:'Unidad', th_cost_unit:'Costo/unidad', th_stock:'En stock', lbl_stock:'Cantidad en stock',
     btn_history:'Historial', btn_edit:'Editar', btn_delete:'Eliminar',
     rec_title:'Recibos', rec_sub:'Historial de recibos escaneados o subidos — cada uno alimentó el inventario automáticamente',
     no_supplier_name:'Proveedor sin nombre', product_singular:'producto', products_plural:'productos',
@@ -373,7 +370,7 @@ const I18N = {
     pin_error:'PIN incorrecto — intenta de nuevo',
     item_edit_title:'Editar ingrediente', item_new_title:'Nuevo ingrediente',
     item_sub:'Unidad y costo, para calcular el costo de cada plato que lo use',
-    lbl_name:'Nombre', ph_name_example:'Ej. Medium shrimp', lbl_category:'Categoría', ph_category_example:'Ej. Proteins',
+    lbl_name:'Nombre', ph_name_example:'Ej. Medium shrimp', lbl_category:'Categoría',
     lbl_unit:'Unidad', lbl_cost_unit:'Costo por unidad',
     item_helper:'Al registrar una compra o escanear un recibo, el costo se actualiza solo.',
     purchase_title:'Registrar compra', purchase_sub:'Actualiza el precio de costo automáticamente',
@@ -419,7 +416,7 @@ const I18N = {
     empty_dishes_title:"You don't have any dishes yet", empty_dishes_sub:'Add your first menu dish.',
     inv_title:'Inventory', inv_sub:'Ingredients and their current cost per unit, to calculate the cost of each dish',
     btn_new_purchase:'+ Log purchase', btn_new_item:'+ New ingredient',
-    th_ingredient:'Ingredient', th_category:'Category', th_unit:'Unit', th_cost_unit:'Cost/unit', th_stock:'In stock', lbl_stock:'Quantity in stock',
+    th_ingredient:'Ingredient', th_unit:'Unit', th_cost_unit:'Cost/unit', th_stock:'In stock', lbl_stock:'Quantity in stock',
     btn_history:'History', btn_edit:'Edit', btn_delete:'Delete',
     rec_title:'Receipts', rec_sub:'History of scanned or uploaded receipts — each one automatically updated your inventory',
     no_supplier_name:'Unnamed supplier', product_singular:'product', products_plural:'products',
@@ -450,7 +447,7 @@ const I18N = {
     pin_error:'Incorrect PIN — try again',
     item_edit_title:'Edit ingredient', item_new_title:'New ingredient',
     item_sub:'Unit and cost, to calculate the cost of any dish that uses it',
-    lbl_name:'Name', ph_name_example:'e.g. Medium shrimp', lbl_category:'Category', ph_category_example:'e.g. Proteins',
+    lbl_name:'Name', ph_name_example:'e.g. Medium shrimp', lbl_category:'Category',
     lbl_unit:'Unit', lbl_cost_unit:'Cost per unit',
     item_helper:'When you log a purchase or scan a receipt, the cost updates automatically.',
     purchase_title:'Log purchase', purchase_sub:'Automatically updates the cost price',
@@ -716,7 +713,7 @@ function dashboardView(){
           const cells = new Array(3-last3.length).fill(null).concat(last3);
           const changePct = lastPriceChangePct(i.id);
           return `<tr>
-            <td style="font-weight:600;">${escapeHtml(i.name)}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}<div class="cell-sub">${escapeHtml(i.category)}</div></td>
+            <td style="font-weight:600;">${escapeHtml(i.name)}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</td>
             ${cells.map((p,idx)=>{
               if(!p) return `<td class="mono-cell" style="color:var(--ink-soft);">${t('dash_no_purchase_yet')}</td>`;
               const unitPrice = p.totalPrice/p.qty;
@@ -745,12 +742,11 @@ function inventarioView(){
   ${inventory.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) : `
   <div class="table-wrap">
     <table>
-      <thead><tr><th>${t('th_ingredient')}</th><th>${t('th_category')}</th><th>${t('th_unit')}</th><th>${t('th_cost_unit')}</th><th>${t('th_stock')}</th><th></th></tr></thead>
+      <thead><tr><th>${t('th_ingredient')}</th><th>${t('th_unit')}</th><th>${t('th_cost_unit')}</th><th>${t('th_stock')}</th><th></th></tr></thead>
       <tbody>
         ${inventory.map(i=>{
           return `<tr>
-            <td style="font-weight:600;">${escapeHtml(i.name)} ${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}<div class="cell-sub">${escapeHtml(i.category)}</div></td>
-            <td style="color:var(--ink-soft);">${escapeHtml(i.category)}</td>
+            <td style="font-weight:600;">${escapeHtml(i.name)} ${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</td>
             <td class="mono-cell">${unitLabel(i.unit)}</td>
             <td class="mono-cell" style="font-weight:700;">${money(i.costPerUnit)}/${unitLabel(i.unit)}${priceChangeBadge(lastPriceChangePct(i.id))}</td>
             <td class="mono-cell">${i.qtyOnHand||0} ${unitLabel(i.unit)}</td>
@@ -1162,7 +1158,7 @@ function emptyState(icon,title,sub){
 
 /* ================= MODAL: INGREDIENTE ================= */
 function openItemModal(item){
-  draftItem = item ? {...item} : {id:uid('i'), name:'', category:'', unit:'lb', costPerUnit:'', qtyOnHand:0};
+  draftItem = item ? {...item} : {id:uid('i'), name:'', unit:'lb', costPerUnit:'', qtyOnHand:0};
   editingItem = item ? item.id : null;
   showItemModal = true; render();
 }
@@ -1174,15 +1170,12 @@ function itemModal(){
       <div class="sub">${t('item_sub')}</div>
       <div class="field"><label>${t('lbl_name')}</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="${t('ph_name_example')}"></div>
       <div class="field-row">
-        <div class="field"><label>${t('lbl_category')}</label><input id="fi-cat" type="text" value="${escapeHtml(draftItem.category)}" placeholder="${t('ph_category_example')}"></div>
         <div class="field"><label>${t('lbl_unit')}</label>
           <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
         </div>
-      </div>
-      <div class="field-row">
         <div class="field"><label>${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" value="${draftItem.costPerUnit}" placeholder="0.00"></div>
-        <div class="field"><label>${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" value="${draftItem.qtyOnHand||0}"></div>
       </div>
+      <div class="field"><label>${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" value="${draftItem.qtyOnHand||0}"></div>
       <div class="helper-note">${t('item_helper')}</div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-item">${t('btn_cancel')}</button>
@@ -1720,10 +1713,7 @@ function applyScanResults(){
     let ingId = item.matchedIngId;
     let ingName = '';
     if(ingId==='__new__'){
-      // La categoría de un ingrediente nuevo creado desde un escaneo se guarda siempre en inglés
-      // ("Uncategorized"), igual que el resto de los datos de producto — así el emparejamiento
-      // con el OCR nunca se ve afectado por el idioma en el que esté la interfaz al escanear.
-      const newIng = {id:uid('i'), name:item.rawName, category:'Uncategorized', unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty};
+      const newIng = {id:uid('i'), name:item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty};
       inventory.push(newIng);
       ingId = newIng.id;
       ingName = newIng.name;
@@ -1974,7 +1964,6 @@ function attachEvents(){
       if(!name) return;
       const item={
         id:draftItem.id, name,
-        category:document.getElementById('fi-cat').value.trim(),
         unit:document.getElementById('fi-unit').value,
         costPerUnit:parseFloat(document.getElementById('fi-cost').value)||0,
         updated:draftItem.updated||false,
