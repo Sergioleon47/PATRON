@@ -141,8 +141,12 @@
   .stock-actions-btns{display:flex;gap:6px;}
   .stock-icon-btn{width:30px;height:30px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:#fff;transition:transform .2s ease;}
   .stock-icon-btn:active{transform:scale(0.9);}
+  .stock-icon-btn svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .stock-icon-btn.cart{background:var(--stock-ok);}
   .stock-icon-btn.whatsapp{background:#25D366;}
+  .stock-icon-btn.history{background:#9AA0A6;}
+  .stock-icon-btn.edit{background:var(--stock-ok);}
+  .inv-row-meta{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:2px;}
   .stock-summary{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:6px 0 20px;padding-top:16px;border-top:1px solid var(--line);flex-wrap:wrap;}
   .stock-summary-label{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
   .stock-summary-value{font-size:20px;font-weight:700;color:var(--stock-crit);font-family:'Space Grotesk';margin-top:2px;}
@@ -376,8 +380,9 @@ const I18N = {
     empty_receipts_title:'Aún no hay recibos guardados', empty_receipts_sub:'Cuando escanees uno desde el botón de escanear, aparecerá aquí con la foto original y los productos detectados.',
     empty_dishes_title:'Aún no tienes platos', empty_dishes_sub:'Agrega tu primer plato del menú.',
     inv_title:'Inventario', inv_sub:'Ingredientes y su costo actual por unidad, para calcular el costo de cada plato',
+    inv_in_stock_suffix:'en stock', inv_swipe_hint:'Deslizá una fila hacia la izquierda para eliminar ese ingrediente.',
     btn_new_purchase:'+ Registrar compra', btn_new_item:'+ Nuevo ingrediente',
-    th_ingredient:'Ingrediente', th_unit:'Unidad', th_cost_unit:'Costo/unidad', th_stock:'En stock', lbl_stock:'Cantidad en stock',
+    th_ingredient:'Ingrediente', th_cost_unit:'Costo/unidad', lbl_stock:'Cantidad en stock',
     btn_history:'Historial', btn_edit:'Editar', btn_delete:'Eliminar',
     rec_title:'Recibos', rec_sub:'Historial de recibos escaneados o subidos — cada uno alimentó el inventario automáticamente',
     no_supplier_name:'Proveedor sin nombre', product_singular:'producto', products_plural:'productos',
@@ -455,8 +460,9 @@ const I18N = {
     empty_receipts_title:'No receipts saved yet', empty_receipts_sub:"Once you scan one from the scan button, it'll show up here with the original photo and the detected products.",
     empty_dishes_title:"You don't have any dishes yet", empty_dishes_sub:'Add your first menu dish.',
     inv_title:'Inventory', inv_sub:'Ingredients and their current cost per unit, to calculate the cost of each dish',
+    inv_in_stock_suffix:'in stock', inv_swipe_hint:'Swipe a row left to delete that ingredient.',
     btn_new_purchase:'+ Log purchase', btn_new_item:'+ New ingredient',
-    th_ingredient:'Ingredient', th_unit:'Unit', th_cost_unit:'Cost/unit', th_stock:'In stock', lbl_stock:'Quantity in stock',
+    th_ingredient:'Ingredient', th_cost_unit:'Cost/unit', lbl_stock:'Quantity in stock',
     btn_history:'History', btn_edit:'Edit', btn_delete:'Delete',
     rec_title:'Receipts', rec_sub:'History of scanned or uploaded receipts — each one automatically updated your inventory',
     no_supplier_name:'Unnamed supplier', product_singular:'product', products_plural:'products',
@@ -993,6 +999,7 @@ function dashboardView(){
 
 /* ---------- INVENTARIO ---------- */
 function inventarioView(){
+  const rows = stockRowsData();
   return `
   <div class="section-head">
     <div><h2>${t('inv_title')}</h2><p>${t('inv_sub')}</p></div>
@@ -1002,22 +1009,39 @@ function inventarioView(){
     </div>
   </div>
   ${inventory.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) : `
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>${t('th_ingredient')}</th><th>${t('th_unit')}</th><th>${t('th_cost_unit')}</th><th>${t('th_stock')}</th><th></th></tr></thead>
-      <tbody>
-        ${inventory.map(i=>{
-          return `<tr>
-            <td style="font-weight:600;">${escapeHtml(i.name)} ${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</td>
-            <td class="mono-cell">${unitLabel(i.unit)}</td>
-            <td class="mono-cell" style="font-weight:700;">${money(i.costPerUnit)}/${unitLabel(i.unit)}${priceChangeBadge(lastPriceChangePct(i.id))}</td>
-            <td class="mono-cell">${i.qtyOnHand||0} ${unitLabel(i.unit)}</td>
-            <td><button class="link-btn" data-history-item="${i.id}">${t('btn_history')}</button><button class="link-btn" data-edit-item="${i.id}">${t('btn_edit')}</button><button class="link-btn danger" data-del-item="${i.id}">${t('btn_delete')}</button></td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>
-  </div>`}
+  <div class="stock-card" style="padding-bottom:6px;">
+    ${rows.map(r=>{
+      const i = r.ing;
+      return `
+      <div class="stock-row-swipe" data-ing-id="${i.id}">
+        <div class="stock-row-delete-bg">
+          <button class="stock-row-delete-btn" title="${t('btn_delete')}">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        </div>
+        <div class="stock-row">
+          <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}">${stockIconSvg(i.name)}</div>
+          <div class="stock-main">
+            <div class="stock-name">${escapeHtml(i.name)} (${unitLabel(i.unit)})${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
+            <div class="inv-row-meta">${money(i.costPerUnit)}/${unitLabel(i.unit)}${priceChangeBadge(lastPriceChangePct(i.id))}</div>
+            <div class="stock-caption">${i.qtyOnHand||0} ${unitLabel(i.unit)} ${t('inv_in_stock_suffix')}</div>
+          </div>
+          <div class="stock-actions">
+            <div class="stock-actions-btns">
+              <button class="stock-icon-btn history" data-history-item="${i.id}" title="${t('btn_history')}">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg>
+              </button>
+              <button class="stock-icon-btn edit" data-edit-item="${i.id}" title="${t('btn_edit')}">
+                <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div class="helper-note">${t('inv_swipe_hint')}</div>
+  `}
   `;
 }
 
