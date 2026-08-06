@@ -123,7 +123,8 @@
   .stock-row-delete-btn:active{transform:scale(0.9);background:rgba(255,255,255,0.28);}
   .stock-row-delete-btn svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .stock-row{display:flex;align-items:center;gap:14px;padding:14px 0;background:var(--panel);position:relative;touch-action:pan-y;user-select:none;}
-  .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;border:2px solid var(--stock-ok);background:#fff;}
+  .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid var(--stock-ok);background:#fff;overflow:hidden;}
+  .stock-icon-ring svg{width:28px;height:28px;display:block;}
   .stock-icon-ring.warn{border-color:var(--stock-warn);}
   .stock-icon-ring.crit{border-color:var(--stock-crit);}
   .stock-main{flex:1;min-width:0;}
@@ -729,20 +730,70 @@ function scanIconSvg(){
   </svg>`;
 }
 
-/* Ícono redondo por ingrediente, heurística por palabras clave en el nombre.
+/* Categoría de ícono por ingrediente, heurística por palabras clave en el nombre.
    Placeholder de apariencia — cuando definamos el contenido real se puede
    reemplazar por un selector manual o por categoría. */
-function stockIcon(name){
+function stockIconKey(name){
   const n = (name||'').toLowerCase();
-  if(/beef|res|steak|carne/.test(n)) return '🥩';
-  if(/chicken|pollo/.test(n)) return '🍗';
-  if(/shrimp|camar|fish|pescado|seafood|marisco/.test(n)) return '🍤';
-  if(/cheese|queso/.test(n)) return '🧀';
-  if(/tomato|tomate/.test(n)) return '🍅';
-  if(/bread|pan|brioche|tortilla/.test(n)) return '🍞';
-  if(/flour|harina/.test(n)) return '🌾';
-  if(/oil|aceite/.test(n)) return '🫒';
-  return '📦';
+  if(/beef|res|steak|carne/.test(n)) return 'beef';
+  if(/chicken|pollo/.test(n)) return 'chicken';
+  if(/shrimp|camar/.test(n)) return 'shrimp';
+  if(/fish|pescado|seafood|marisco|salmon|tilapia|atun|tuna/.test(n)) return 'fish';
+  if(/cheese|queso/.test(n)) return 'cheese';
+  if(/milk|leche|cream|crema|butter|mantequilla|yogurt|yogur/.test(n)) return 'dairy';
+  if(/tomato|tomate/.test(n)) return 'tomato';
+  if(/tortilla/.test(n)) return 'tortilla';
+  if(/bread|pan|brioche/.test(n)) return 'bread';
+  if(/flour|harina/.test(n)) return 'flour';
+  if(/oil|aceite/.test(n)) return 'oil';
+  return 'box';
+}
+
+/* Íconos ilustrados planos (no fotos), dibujados a mano para que combinen con el
+   estilo de la app en vez de depender de los emoji del sistema operativo (que
+   se ven distinto en cada celular/navegador). */
+const STOCK_ICONS = {
+  beef: `<path d="M10 27c-2-6 1-13 8-16 8-4 18-2 21 5 2 6-1 12-6 14-2 5-8 8-13 6-3-1-5-3-6-6-2-1-3-2-4-3z" fill="#C97B63"/>
+    <circle cx="18" cy="24" r="1.6" fill="#fff" opacity=".55"/>
+    <circle cx="24" cy="29" r="1.6" fill="#fff" opacity=".55"/>
+    <circle cx="27" cy="22" r="1.4" fill="#fff" opacity=".45"/>`,
+  chicken: `<ellipse cx="19" cy="17" rx="12" ry="10" fill="#E8A23C"/>
+    <path d="M23 25c2 4 6 8 10 10 2 1 3 3 1 5s-4 1-5-1c-2-4-6-8-10-10z" fill="#F0D6A3"/>`,
+  shrimp: `<path d="M33 11c5 2 7 9 4 15-3 6-10 9-17 7-5-1-8-6-6-10 1-3 4-4 7-3" fill="#E8896B"/>
+    <path d="M14 25c-2 2-3 5-1 7 2 1 5 0 6-3" fill="#F3B49D"/>
+    <circle cx="31" cy="15" r="1.5" fill="#7A2E1E"/>`,
+  fish: `<path d="M6 24c6-8 17-10 25-6l7 6-7 6c-8 4-19 2-25-6z" fill="#6FAFC9"/>
+    <path d="M38 24l6-4.5v9z" fill="#5D9CB6"/>
+    <circle cx="15" cy="22" r="1.6" fill="#1C3E4A"/>`,
+  cheese: `<path d="M6 34 L23 9 L42 34 Z" fill="#F0C23C"/>
+    <circle cx="21" cy="27" r="2" fill="#D9A72B"/>
+    <circle cx="29" cy="25" r="1.5" fill="#D9A72B"/>
+    <circle cx="26" cy="31" r="1.6" fill="#D9A72B"/>`,
+  tomato: `<circle cx="24" cy="27" r="14" fill="#D9463A"/>
+    <path d="M18 14c2-3 6-4 6-4s4 1 6 4" stroke="#4C9A5B" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <ellipse cx="19" cy="22" rx="3" ry="2" fill="#fff" opacity=".25"/>`,
+  tortilla: `<circle cx="24" cy="24" r="16" fill="#E8C58A"/>
+    <circle cx="24" cy="24" r="16" fill="none" stroke="#C9A15C" stroke-width="2" stroke-dasharray="2 3.4"/>`,
+  bread: `<path d="M8 30c0-11 7-19 16-19s16 8 16 19c0 3-2 4-4 4H12c-2 0-4-1-4-4z" fill="#D9A15C"/>
+    <path d="M14 26c2-4 6-6 10-6s8 2 10 6" stroke="#B87F3D" stroke-width="2" fill="none" stroke-linecap="round" opacity=".6"/>`,
+  flour: `<path d="M24 6v18" stroke="#C9A227" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M24 10c-3-2-6-1-7 1 1 3 4 3 7 1M24 10c3-2 6-1 7 1-1 3-4 3-7-1" fill="#E3C94A"/>
+    <path d="M24 16c-3-2-6-1-7 1 1 3 4 3 7 1M24 16c3-2 6-1 7 1-1 3-4 3-7-1" fill="#E3C94A"/>
+    <rect x="17" y="24" width="14" height="16" rx="2" fill="#F0E4C0"/>
+    <path d="M17 31h14" stroke="#C9A227" stroke-width="1.4"/>`,
+  oil: `<rect x="19" y="7" width="6" height="6" rx="1" fill="#6E8F3A"/>
+    <path d="M17 15c0-2 1-3 2-3h8c1 0 2 1 2 3v4c3 2 4 5 4 9v9c0 2-2 4-4 4H17c-2 0-4-2-4-4v-9c0-4 1-7 4-9z" fill="#8AA23C"/>
+    <circle cx="24" cy="30" r="1.6" fill="#fff" opacity=".5"/>`,
+  dairy: `<path d="M16 10l4-4h8l4 4v26a2 2 0 0 1-2 2H18a2 2 0 0 1-2-2z" fill="#EAF2F7"/>
+    <path d="M20 6h8l-4 4z" fill="#D7E6EE"/>
+    <rect x="16" y="20" width="16" height="12" fill="#CFE0EA"/>`,
+  box: `<path d="M8 16l16-8 16 8-16 8-16-8z" fill="#B9BEC4"/>
+    <path d="M8 16v16l16 8V24z" fill="#9AA0A6"/>
+    <path d="M40 16v16l-16 8V24z" fill="#CBD0D6"/>`,
+};
+function stockIconSvg(name){
+  const key = stockIconKey(name);
+  return `<svg viewBox="0 0 48 48">${STOCK_ICONS[key] || STOCK_ICONS.box}</svg>`;
 }
 function stockStatus(pct){ return pct>=60 ? 'ok' : pct>=20 ? 'warn' : 'crit'; }
 
@@ -771,7 +822,7 @@ function stockAnalyticsCard(){
           </button>
         </div>
         <div class="stock-row">
-          <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}">${stockIcon(r.ing.name)}</div>
+          <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}">${stockIconSvg(r.ing.name)}</div>
           <div class="stock-main">
             <div class="stock-name">${escapeHtml(r.ing.name)} (${unitLabel(r.ing.unit)})</div>
             <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,10)}%;"><span>${r.pct}%</span></div></div>
