@@ -116,8 +116,13 @@
   /* STOCK ANALYTICS CARD */
   .stock-card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);padding:20px 20px 0;margin-bottom:24px;}
   .stock-card-title{font-size:15px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-family:'Space Grotesk';margin:0 0 6px;}
-  .stock-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);}
-  .stock-row:last-of-type{border-bottom:none;}
+  .stock-row-swipe{position:relative;overflow:hidden;border-bottom:1px solid var(--line);}
+  .stock-row-swipe:last-child{border-bottom:none;}
+  .stock-row-delete-bg{position:absolute;inset:0;background:var(--stock-crit);display:flex;align-items:center;justify-content:flex-end;padding-right:6px;}
+  .stock-row-delete-btn{width:54px;height:54px;border-radius:50%;border:none;background:rgba(255,255,255,0.16);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-right:14px;transition:background .2s ease,transform .15s ease;}
+  .stock-row-delete-btn:active{transform:scale(0.9);background:rgba(255,255,255,0.28);}
+  .stock-row-delete-btn svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .stock-row{display:flex;align-items:center;gap:14px;padding:14px 0;background:var(--panel);position:relative;touch-action:pan-y;user-select:none;}
   .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;border:2px solid var(--stock-ok);background:#fff;}
   .stock-icon-ring.warn{border-color:var(--stock-warn);}
   .stock-icon-ring.crit{border-color:var(--stock-crit);}
@@ -759,21 +764,28 @@ function stockAnalyticsCard(){
   <div class="stock-card">
     <h3 class="stock-card-title">${t('stock_status_title')}</h3>
     ${rows.map(r=>`
-      <div class="stock-row">
-        <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}">${stockIcon(r.ing.name)}</div>
-        <div class="stock-main">
-          <div class="stock-name">${escapeHtml(r.ing.name)} (${unitLabel(r.ing.unit)})</div>
-          <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,10)}%;"><span>${r.pct}%</span></div></div>
-          <div class="stock-caption">${r.ing.qtyOnHand||0} ${unitLabel(r.ing.unit)} ${t('stock_of')} ${r.target} ${unitLabel(r.ing.unit)}</div>
+      <div class="stock-row-swipe" data-ing-id="${r.ing.id}">
+        <div class="stock-row-delete-bg">
+          <button class="stock-row-delete-btn" title="${t('btn_delete')}">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
         </div>
-        ${r.status==='crit' ? `
-        <div class="stock-actions">
-          <div class="stock-actions-label">${t('stock_quick_order')}</div>
-          <div class="stock-actions-btns">
-            <button class="stock-icon-btn cart" title="${t('stock_quick_order')}">🛒</button>
-            <button class="stock-icon-btn whatsapp" title="WhatsApp">💬</button>
+        <div class="stock-row">
+          <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}">${stockIcon(r.ing.name)}</div>
+          <div class="stock-main">
+            <div class="stock-name">${escapeHtml(r.ing.name)} (${unitLabel(r.ing.unit)})</div>
+            <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,10)}%;"><span>${r.pct}%</span></div></div>
+            <div class="stock-caption">${r.ing.qtyOnHand||0} ${unitLabel(r.ing.unit)} ${t('stock_of')} ${r.target} ${unitLabel(r.ing.unit)}</div>
           </div>
-        </div>` : ''}
+          ${r.status==='crit' ? `
+          <div class="stock-actions">
+            <div class="stock-actions-label">${t('stock_quick_order')}</div>
+            <div class="stock-actions-btns">
+              <button class="stock-icon-btn cart" title="${t('stock_quick_order')}">🛒</button>
+              <button class="stock-icon-btn whatsapp" title="WhatsApp">💬</button>
+            </div>
+          </div>` : ''}
+        </div>
       </div>
     `).join('')}
     <div class="stock-summary">
@@ -1991,8 +2003,115 @@ async function shareReceipt(r){
   downloadReceiptImage(r);
 }
 
+/* ================= SWIPE PARA BORRAR (Estado del inventario) ================= */
+let openSwipeRow = null; // wrap element actualmente abierto (mostrando el fondo rojo), o null
+
+function closeOpenSwipe(){
+  if(openSwipeRow){
+    const row = openSwipeRow.querySelector('.stock-row');
+    if(row){ row.style.transition='transform .25s cubic-bezier(.22,.8,.28,1)'; row.style.transform='translateX(0)'; }
+    openSwipeRow = null;
+  }
+}
+
+function performSwipeDelete(wrap, row){
+  const id = wrap.dataset.ingId;
+  const wrapHeight = wrap.getBoundingClientRect().height;
+  row.style.transition = 'transform .28s cubic-bezier(.4,0,.2,1)';
+  row.style.transform = 'translateX(-100%)';
+  wrap.style.maxHeight = wrapHeight+'px';
+  wrap.style.overflow = 'hidden';
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      wrap.style.transition = 'max-height .25s ease .05s, opacity .25s ease .05s';
+      wrap.style.maxHeight = '0px';
+      wrap.style.opacity = '0';
+    });
+  });
+  if(openSwipeRow===wrap) openSwipeRow=null;
+  setTimeout(()=>{
+    inventory = inventory.filter(i=>i.id!==id);
+    saveState();
+    render();
+  }, 300);
+}
+
+function attachSwipeHandlers(){
+  const REVEAL = 76; // ancho visible del botón de borrar cuando queda "abierto"
+  const DELETE_FRACTION = 0.55; // % del ancho de la fila para que soltar dispare el borrado automático
+  document.querySelectorAll('.stock-row-swipe').forEach(wrap=>{
+    const row = wrap.querySelector('.stock-row');
+    const delBg = wrap.querySelector('.stock-row-delete-bg');
+    const delBtn = wrap.querySelector('.stock-row-delete-btn');
+    if(!row) return;
+    let startX=0, startY=0, dx=0, dragging=false, axis=null, baseX=0, rowWidth=0;
+
+    row.addEventListener('pointerdown',(e)=>{
+      if(e.pointerType==='mouse' && e.button!==0) return;
+      if(openSwipeRow && openSwipeRow!==wrap) closeOpenSwipe();
+      baseX = (wrap===openSwipeRow) ? -REVEAL : 0;
+      startX=e.clientX; startY=e.clientY; dx=baseX; dragging=true; axis=null;
+      rowWidth = wrap.getBoundingClientRect().width;
+      row.style.transition='none';
+      try{ row.setPointerCapture(e.pointerId); }catch(err){}
+    });
+
+    row.addEventListener('pointermove',(e)=>{
+      if(!dragging) return;
+      const rawDx = e.clientX-startX;
+      const rawDy = e.clientY-startY;
+      if(axis===null){
+        if(Math.abs(rawDx)<6 && Math.abs(rawDy)<6) return;
+        axis = Math.abs(rawDx)>Math.abs(rawDy) ? 'x' : 'y';
+        if(axis==='y'){ dragging=false; row.style.transition=''; return; }
+      }
+      if(axis!=='x') return;
+      e.preventDefault();
+      let next = baseX + rawDx;
+      if(next>0) next = next*0.25; // resistencia tipo goma al tirar hacia la derecha del todo
+      if(next < -REVEAL){
+        const over = next + REVEAL;
+        next = -REVEAL + over*0.4; // resistencia progresiva pasado el punto de "abierto"
+      }
+      const maxNeg = -(rowWidth*0.9);
+      if(next < maxNeg) next = maxNeg;
+      dx = next;
+      row.style.transform = `translateX(${next}px)`;
+      if(delBg){
+        const progress = Math.min(1, Math.max(0, Math.abs(next))/(rowWidth*DELETE_FRACTION));
+        delBg.style.opacity = String(0.7 + progress*0.3);
+      }
+    });
+
+    const endDrag = ()=>{
+      if(!dragging) return;
+      dragging=false;
+      if(axis!=='x'){ row.style.transition=''; return; }
+      row.style.transition = 'transform .22s cubic-bezier(.22,.8,.28,1)';
+      if(Math.abs(dx) > rowWidth*DELETE_FRACTION){
+        performSwipeDelete(wrap, row);
+      } else if(dx < -REVEAL*0.4){
+        row.style.transform = `translateX(${-REVEAL}px)`;
+        openSwipeRow = wrap;
+      } else {
+        row.style.transform = 'translateX(0)';
+        if(openSwipeRow===wrap) openSwipeRow=null;
+      }
+    };
+    row.addEventListener('pointerup', endDrag);
+    row.addEventListener('pointercancel', endDrag);
+
+    row.addEventListener('click',(e)=>{
+      if(openSwipeRow===wrap){ e.preventDefault(); e.stopPropagation(); closeOpenSwipe(); }
+    });
+
+    if(delBtn) delBtn.onclick=(e)=>{ e.stopPropagation(); performSwipeDelete(wrap, row); };
+  });
+}
+
 /* ================= EVENTOS ================= */
 function attachEvents(){
+  attachSwipeHandlers();
   document.querySelectorAll('.bottom-nav-item').forEach(t=>{ t.onclick=()=>{ activeTab=t.dataset.tab; render(); }; });
   const btnLangToggle=document.getElementById('btn-lang-toggle');
   if(btnLangToggle) btnLangToggle.onclick=()=>setLang(uiLang==='es'?'en':'es');
