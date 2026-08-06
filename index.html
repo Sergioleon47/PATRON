@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PlatoCost — Inventario &amp; Menú</title>
+<title>PlatoCost — Inventario</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -31,7 +31,7 @@
 
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
   .topbar .brand{order:1;}
-  .topbar .lang-toggle{order:2;}
+  .topbar .topbar-actions{order:2;}
   .brand{display:flex;align-items:center;gap:2px;}
   .brand-mark{
     width:42px;height:42px;border-radius:11px;
@@ -154,32 +154,9 @@
   .stock-suggest-btn{background:var(--stock-ok);color:#fff;border:none;border-radius:20px;padding:9px 18px;font-size:12px;font-weight:700;margin-top:4px;cursor:pointer;}
   .stock-suggest-btn:hover{opacity:.9;}
 
-  /* DISH CARDS */
+  /* Tarjetas de recibos (grid con foto de portada), pestaña Recibos */
   .dish-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
   .dish-card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;}
-  .dish-top{padding:16px 18px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
-  .dish-name{font-size:16px;font-weight:700;font-family:'Space Grotesk';}
-  .dish-cat{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;}
-  .gauge{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'IBM Plex Mono';font-weight:600;font-size:13px;}
-  .dish-mid{padding:0 18px;display:flex;gap:18px;margin-bottom:12px;}
-  .metric{flex:1;}
-  .metric-label{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;}
-  .metric-value{font-size:16px;font-weight:700;font-family:'IBM Plex Mono';margin-top:2px;}
-  .dish-status{margin:0 18px 14px;padding:8px 10px;border-radius:9px;font-size:12px;font-weight:600;}
-  .dish-actions{margin-top:auto;border-top:1px solid var(--line);padding:10px 18px;display:flex;justify-content:space-between;align-items:center;background:#FAFAF7;}
-  .recipe-list{padding:0 18px 12px;display:flex;flex-direction:column;gap:6px;}
-  .recipe-item{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-soft);}
-  .recipe-item span:last-child{font-family:'IBM Plex Mono';color:var(--ink);}
-
-  .margin-compare{
-    margin:0 18px 12px;padding:10px 12px;background:#FAFAF7;border:1px solid var(--line);border-radius:10px;
-    display:flex;align-items:center;justify-content:space-between;gap:8px;
-  }
-  .mc-col{flex:1;text-align:center;}
-  .mc-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-weight:600;}
-  .mc-value{font-family:'IBM Plex Mono';font-weight:700;font-size:13.5px;margin-top:2px;}
-  .mc-pct{font-size:10.5px;color:var(--ink-soft);margin-top:1px;}
-  .mc-arrow{font-size:13px;font-weight:700;flex-shrink:0;}
 
   /* MODAL */
   .overlay{position:fixed;inset:0;background:rgba(30,36,34,0.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
@@ -206,25 +183,6 @@
   .empty-state{text-align:center;padding:50px 20px;color:var(--ink-soft);}
   .empty-state .em-icon{font-size:34px;margin-bottom:10px;}
 
-  /* PIN GATE */
-  .pin-gate{max-width:300px;margin:50px auto 0;text-align:center;}
-  .pin-gate .pin-icon{width:56px;height:56px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:22px;}
-  .pin-gate h2{font-size:18px;margin:0 0 4px;}
-  .pin-gate p{font-size:12.5px;color:var(--ink-soft);margin:0 0 22px;}
-  .pin-dots{display:flex;gap:14px;justify-content:center;margin-bottom:24px;}
-  .pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);background:#fff;transition:all .3s ease;}
-  .pin-dot.filled{background:var(--navy);border-color:var(--navy);}
-  .pin-dot.error{background:var(--tomato);border-color:var(--tomato);}
-  .pin-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
-  .pin-key{
-    aspect-ratio:1;border-radius:50%;border:1px solid var(--line);background:var(--panel);
-    font-size:20px;font-weight:700;font-family:'Space Grotesk';color:var(--ink);cursor:pointer;
-    box-shadow:var(--shadow);transition:transform .25s ease;
-  }
-  .pin-key:active{transform:scale(0.92);background:#F0EEE7;}
-  .pin-key.empty{visibility:hidden;}
-  .pin-key.backspace{font-size:16px;color:var(--tomato);}
-  .pin-error-msg{color:var(--tomato);font-size:12px;font-weight:600;margin-top:16px;min-height:16px;}
 
   .purchase-row{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);}
   .purchase-row:last-child{border-bottom:none;}
@@ -304,12 +262,6 @@ let purchases = [
   {id:'p6', ingId:'i1', qty:40, totalPrice:82.00, supplier:'US Foods', date:'2026-06-05'},
 ];
 
-let dishes = [
-  {id:'d1', name:'Shrimp Tacos (3pc)', category:'Entrees', price:14.50, items:[{ingId:'i2', qty:0.35},{ingId:'i7', qty:3},{ingId:'i4', qty:0.2}]},
-  {id:'d2', name:'Grilled Chicken Breast', category:'Entrees', price:16.00, items:[{ingId:'i1', qty:0.55},{ingId:'i5', qty:0.5}]},
-  {id:'d3', name:'Margherita Pizza 12"', category:'Pizzas', price:13.00, items:[{ingId:'i6', qty:0.4},{ingId:'i3', qty:0.5},{ingId:'i4', qty:0.3},{ingId:'i5', qty:0.3}]},
-];
-
 let receipts = []; // historial: {id, images:[{base64,mediaType}, ...] (una o varias páginas), supplier, date, total, itemCount, appliedItems, createdAt, purchaseIds}
 // Nota: recibos guardados antes de la migración a Claude API pueden tener el formato viejo
 // de una sola foto (imageBase64 + mediaType) en vez de "images" — por eso receiptImages()
@@ -319,35 +271,17 @@ let receiptSearchQuery = '';
 
 let activeTab = 'dashboard';
 let lastRenderedTab = null;
-let showItemModal=false, showPurchaseModal=false, showDishModal=false, showScanModal=false, showReceiptDetail=null;
+let showItemModal=false, showPurchaseModal=false, showScanModal=false, showReceiptDetail=null;
 let showPriceHistoryModal=false, priceHistoryIngId=null;
 let showMonthlySpendModal=false;
-let editingItem=null, editingDish=null;
-let draftItem=null, draftDish=null;
+let editingItem=null;
+let draftItem=null;
 let scanDuplicateOf=null; // receipt existente si se detecta posible duplicado
 let scanDuplicateConfirmed=false;
 
-// PIN del gerente, guardado como hash SHA-256 (no en texto plano) para que no se lea directo
-// desde "ver código fuente". Esto sube la barrera casual pero NO es seguridad real: al ser
-// una app sin backend, cualquiera con conocimientos técnicos podría igual probar combinaciones
-// contra este hash. No guardes aquí nada que de verdad necesite protección fuerte.
-// Hash de '1234' (PIN de fábrica) — para cambiarlo, generá el SHA-256 del PIN nuevo y pegalo aquí.
-const MENU_PIN_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
-async function checkPin(pin){
-  const bytes = new TextEncoder().encode(pin);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('') === MENU_PIN_HASH;
-}
-let menuUnlocked = false;
-let pinEntry = '';
-let pinError = '';
 let priceAlertThreshold = 15; // % de aumento que dispara la alerta fuerte al escanear — ajustable por el gerente
-let foodCostTargetPct = 30; // hasta este % de food cost, un plato se marca "rentable" — ajustable, no todos los rubros apuntan al mismo número
-let foodCostWarningPct = 35; // arriba de este % ya se marca "poco rentable"; entre target y este queda "en el límite"
 let showAlertSettingsModal = false;
 let draftThreshold = priceAlertThreshold;
-let draftFoodCostTarget = foodCostTargetPct;
-let draftFoodCostWarning = foodCostWarningPct;
 
 /* Estado del escaneo de recibo */
 let scanState = 'idle'; // idle | preview | loading | matched | error
@@ -371,14 +305,13 @@ function setLang(l){
 }
 const I18N = {
   es: {
-    tab_dashboard:'Dashboard', tab_inventory:'Inventario', tab_receipts:'Recibos', tab_menu:'Menú',
+    tab_dashboard:'Dashboard', tab_inventory:'Inventario', tab_receipts:'Recibos',
     dash_spending_of:'Gasto de', dash_see_all_months:'Ver todos los meses',
     dash_scan_receipt:'Escanear recibo', price_updated:'precio actualizado',
     stock_status_title:'Estado del inventario', stock_of:'de', stock_critical_alerts:'Alertas críticas:',
     stock_suggested_order:'Pedido sugerido:', stock_view_detail:'Ver detalle', stock_quick_order:'Pedido rápido',
-    empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer ingrediente para empezar a costear tus platos.',
+    empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer ingrediente para empezar a llevar tu inventario.',
     empty_receipts_title:'Aún no hay recibos guardados', empty_receipts_sub:'Cuando escanees uno desde el botón de escanear, aparecerá aquí con la foto original y los productos detectados.',
-    empty_dishes_title:'Aún no tienes platos', empty_dishes_sub:'Agrega tu primer plato del menú.',
     inv_title:'Inventario', inv_sub:'Ingredientes y su costo actual por unidad, para calcular el costo de cada plato',
     inv_in_stock_suffix:'en stock', inv_swipe_hint:'Deslizá una fila hacia la izquierda para eliminar ese ingrediente.',
     btn_new_purchase:'+ Registrar compra', btn_new_item:'+ Nuevo ingrediente',
@@ -398,34 +331,19 @@ const I18N = {
     btn_cancel:'Cancelar', btn_close:'Cerrar',
     ms_title:'Gasto por mes', ms_sub:'Todos los meses con compras registradas, uno al lado del otro',
     ms_no_purchases:'Todavía no hay compras registradas.', ms_current_month:'mes actual',
-    alert_title:'Configuración', alert_sub:'Ajustá estos números según cómo trabaje tu negocio — no todos los rubros apuntan al mismo food cost ni a la misma sensibilidad de precio',
-    food_cost_target_title:'Objetivo de food cost', food_cost_target_label:'Rentable hasta (%)', food_cost_warning_label:'Poco rentable desde (%)',
-    food_cost_target_helper:'Hasta el primer número, un plato se marca "Rentable". Entre los dos, "En el límite". Arriba del segundo, "Poco rentable".',
+    alert_title:'Alertas de precio', alert_sub:'Ajustá cuándo un aumento de precio al escanear un recibo se marca como algo que requiere revisión inmediata.',
     alert_threshold_title:'Alertas de precio al escanear', alert_threshold_label:'Umbral de alerta (%)', alert_helper:'Cualquier aumento se marca en amarillo. A partir de este % se marca en rojo, como algo que requiere revisión inmediata.',
-    btn_save:'Guardar',
+    btn_save:'Guardar', btn_alert_settings:'⚙️ Configuración',
     rd_scanned_on:'escaneado el', rd_applied_label:'Productos aplicados al inventario', rd_applied_to:'aplicado a:',
-    menu_title:'Menú', menu_sub:'Platos, precios de venta y receta — el costo se calcula con los precios actuales del inventario',
-    btn_alert_settings:'⚙️ Configuración', btn_lock_menu:'🔒 Bloquear', btn_new_dish:'+ Nuevo plato',
-    no_category:'Sin categoría', lbl_sale_price:'Precio de venta', lbl_avg_cost:'Costo promedio del plato',
-    lbl_margin:'Margen', btn_edit_recipe:'Editar receta',
-    status_profitable:'Rentable', status_borderline:'En el límite', status_low_margin:'Poco rentable',
-    pin_title:'Acceso del gerente', pin_sub:'Ingresa el PIN de 4 dígitos para ver el menú y los costos',
-    pin_error:'PIN incorrecto — intenta de nuevo',
     item_edit_title:'Editar ingrediente', item_new_title:'Nuevo ingrediente',
     item_sub:'Unidad y costo, para calcular el costo de cada plato que lo use',
-    lbl_name:'Nombre', ph_name_example:'Ej. Medium shrimp', lbl_category:'Categoría',
+    lbl_name:'Nombre', ph_name_example:'Ej. Medium shrimp',
     lbl_unit:'Unidad', lbl_cost_unit:'Costo por unidad',
     item_helper:'Al registrar una compra o escanear un recibo, el costo se actualiza solo.',
     purchase_title:'Registrar compra', purchase_sub:'Actualiza el precio de costo automáticamente',
     lbl_ingredient:'Ingrediente', lbl_qty_bought:'Cantidad comprada', ph_qty_example:'Ej. 25',
     lbl_total_paid:'Precio total pagado', ph_price_example:'Ej. 85.00', lbl_supplier:'Proveedor',
     ph_supplier_example:'Ej. US Foods', lbl_date:'Fecha', btn_save_purchase:'Guardar compra',
-    dish_edit_title:'Editar plato', dish_new_title:'Nuevo plato',
-    dish_sub:'Nombre, precio de venta y receta con pesos/cantidades',
-    lbl_dish_name:'Nombre del plato', ph_dish_name_example:'Ej. Shrimp tacos', ph_dish_category_example:'Ej. Entrees',
-    lbl_recipe_ingredients:'Ingredientes de la receta', no_ingredients_yet:'Aún no has agregado ingredientes.',
-    lbl_weight_qty:'Peso/cant.', btn_add:'Agregar',
-    all_ings_in_recipe:'Todos los ingredientes del inventario ya están en esta receta.', btn_save_dish:'Guardar plato',
     scan_title:'Escanear recibo', scan_sub:'Sube una foto del recibo — el sistema extrae los productos y precios, tú confirmas antes de aplicar',
     scan_tap_photo:'Toca para tomar o subir una foto', scan_jpg_png:'JPG o PNG, recibo de proveedor',
     scan_reading:'Leyendo el recibo con IA (puede tardar unos segundos)...',
@@ -451,14 +369,13 @@ const I18N = {
     unit_unidad:'unidad',
   },
   en: {
-    tab_dashboard:'Dashboard', tab_inventory:'Inventory', tab_receipts:'Receipts', tab_menu:'Menu',
+    tab_dashboard:'Dashboard', tab_inventory:'Inventory', tab_receipts:'Receipts',
     dash_spending_of:'Spending for', dash_see_all_months:'See all months',
     dash_scan_receipt:'Scan receipt', price_updated:'price updated',
     stock_status_title:'Inventory status', stock_of:'of', stock_critical_alerts:'Critical alerts:',
     stock_suggested_order:'Suggested order:', stock_view_detail:'View detail', stock_quick_order:'Quick order',
-    empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first ingredient to start costing your dishes.',
+    empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first ingredient to start tracking your inventory.',
     empty_receipts_title:'No receipts saved yet', empty_receipts_sub:"Once you scan one from the scan button, it'll show up here with the original photo and the detected products.",
-    empty_dishes_title:"You don't have any dishes yet", empty_dishes_sub:'Add your first menu dish.',
     inv_title:'Inventory', inv_sub:'Ingredients and their current cost per unit, to calculate the cost of each dish',
     inv_in_stock_suffix:'in stock', inv_swipe_hint:'Swipe a row left to delete that ingredient.',
     btn_new_purchase:'+ Log purchase', btn_new_item:'+ New ingredient',
@@ -478,34 +395,19 @@ const I18N = {
     btn_cancel:'Cancel', btn_close:'Close',
     ms_title:'Spending by month', ms_sub:'All months with recorded purchases, side by side',
     ms_no_purchases:'No purchases recorded yet.', ms_current_month:'current month',
-    alert_title:'Settings', alert_sub:"Adjust these to match how your business runs — not every kind of restaurant targets the same food cost or price sensitivity",
-    food_cost_target_title:'Food cost target', food_cost_target_label:'Profitable up to (%)', food_cost_warning_label:'Low margin from (%)',
-    food_cost_target_helper:'Up to the first number, a dish is marked "Profitable." Between the two, "Borderline." Above the second, "Low margin."',
+    alert_title:'Price alerts', alert_sub:'Adjust when a price increase on a scanned receipt gets flagged as something that needs immediate review.',
     alert_threshold_title:'Price alerts when scanning', alert_threshold_label:'Alert threshold (%)', alert_helper:"Any increase is flagged in yellow. From this % on it's flagged in red, as something that needs immediate review.",
-    btn_save:'Save',
+    btn_save:'Save', btn_alert_settings:'⚙️ Settings',
     rd_scanned_on:'scanned on', rd_applied_label:'Products applied to inventory', rd_applied_to:'applied to:',
-    menu_title:'Menu', menu_sub:'Dishes, selling prices, and recipes — cost is calculated using current inventory prices',
-    btn_alert_settings:'⚙️ Settings', btn_lock_menu:'🔒 Lock', btn_new_dish:'+ New dish',
-    no_category:'Uncategorized', lbl_sale_price:'Selling price', lbl_avg_cost:'Average dish cost',
-    lbl_margin:'Margin', btn_edit_recipe:'Edit recipe',
-    status_profitable:'Profitable', status_borderline:'Borderline', status_low_margin:'Low margin',
-    pin_title:'Manager access', pin_sub:'Enter the 4-digit PIN to see the menu and costs',
-    pin_error:'Incorrect PIN — try again',
     item_edit_title:'Edit ingredient', item_new_title:'New ingredient',
     item_sub:'Unit and cost, to calculate the cost of any dish that uses it',
-    lbl_name:'Name', ph_name_example:'e.g. Medium shrimp', lbl_category:'Category',
+    lbl_name:'Name', ph_name_example:'e.g. Medium shrimp',
     lbl_unit:'Unit', lbl_cost_unit:'Cost per unit',
     item_helper:'When you log a purchase or scan a receipt, the cost updates automatically.',
     purchase_title:'Log purchase', purchase_sub:'Automatically updates the cost price',
     lbl_ingredient:'Ingredient', lbl_qty_bought:'Quantity bought', ph_qty_example:'e.g. 25',
     lbl_total_paid:'Total price paid', ph_price_example:'e.g. 85.00', lbl_supplier:'Supplier',
     ph_supplier_example:'e.g. US Foods', lbl_date:'Date', btn_save_purchase:'Save purchase',
-    dish_edit_title:'Edit dish', dish_new_title:'New dish',
-    dish_sub:'Name, selling price, and recipe with weights/quantities',
-    lbl_dish_name:'Dish name', ph_dish_name_example:'e.g. Shrimp tacos', ph_dish_category_example:'e.g. Entrees',
-    lbl_recipe_ingredients:'Recipe ingredients', no_ingredients_yet:"You haven't added any ingredients yet.",
-    lbl_weight_qty:'Weight/qty.', btn_add:'Add',
-    all_ings_in_recipe:'All ingredients in your inventory are already in this recipe.', btn_save_dish:'Save dish',
     scan_title:'Scan receipt', scan_sub:'Upload a photo of the receipt — the system extracts products and prices, you confirm before applying',
     scan_tap_photo:'Tap to take or upload a photo', scan_jpg_png:'JPG or PNG, supplier receipt',
     scan_reading:'Reading the receipt with AI (this can take a few seconds)...',
@@ -560,7 +462,7 @@ const STORAGE_KEY = 'platocost_data_v1';
 function saveState(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      inventory, purchases, dishes, receipts, aliasMap, priceAlertThreshold, foodCostTargetPct, foodCostWarningPct
+      inventory, purchases, receipts, aliasMap, priceAlertThreshold
     }));
     return true;
   }catch(e){
@@ -580,12 +482,9 @@ function loadState(){
     const data = JSON.parse(raw);
     if(Array.isArray(data.inventory)) inventory = data.inventory;
     if(Array.isArray(data.purchases)) purchases = data.purchases;
-    if(Array.isArray(data.dishes)) dishes = data.dishes;
     if(Array.isArray(data.receipts)) receipts = data.receipts;
     if(data.aliasMap && typeof data.aliasMap==='object') aliasMap = data.aliasMap;
     if(typeof data.priceAlertThreshold==='number') priceAlertThreshold = data.priceAlertThreshold;
-    if(typeof data.foodCostTargetPct==='number') foodCostTargetPct = data.foodCostTargetPct;
-    if(typeof data.foodCostWarningPct==='number') foodCostWarningPct = data.foodCostWarningPct;
   }catch(e){
     console.warn('No se pudo leer localStorage', e);
   }
@@ -598,29 +497,6 @@ const MONTH_NAMES = {
 function monthLabel(key){
   const [y,m] = key.split('-');
   return MONTH_NAMES[uiLang][parseInt(m,10)-1]+' '+y;
-}
-function unitCost(ing){ return ing.costPerUnit; }
-function dishCost(dish){
-  return dish.items.reduce((sum,it)=>{
-    const ing = inventory.find(i=>i.id===it.ingId);
-    return ing ? sum + unitCost(ing)*it.qty : sum;
-  },0);
-}
-function foodCostPct(dish){
-  const c = dishCost(dish);
-  return dish.price>0 ? (c/dish.price)*100 : 0;
-}
-/* Reconstruye el costo de un ingrediente "a la fecha X" usando el historial real de compras */
-function costAsOfDate(ingId, dateStr){
-  const relevant = purchases
-    .filter(p=>p.ingId===ingId && p.date<=dateStr && p.qty>0)
-    .sort((a,b)=>new Date(b.date)-new Date(a.date));
-  if(relevant.length>0) return relevant[0].totalPrice/relevant[0].qty;
-  const ing = inventory.find(i=>i.id===ingId);
-  return ing ? ing.costPerUnit : 0;
-}
-function dishCostAsOf(dish, dateStr){
-  return dish.items.reduce((sum,it)=> sum + costAsOfDate(it.ingId, dateStr)*it.qty, 0);
 }
 /* % de cambio del costo del ingrediente vs. su compra anterior (las 2 últimas compras registradas) */
 function lastPriceChangePct(ingId){
@@ -640,25 +516,6 @@ function priceChangeBadge(pct){
   const arrow = up?'▲':down?'▼':'→';
   return `<span style="color:${color};font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap;">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`;
 }
-function lastMonthEndDate(){
-  const now = new Date();
-  const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-  return localDateStr(lastDayPrevMonth);
-}
-function marginComparison(dish){
-  const costNow = dishCost(dish);
-  const costLastMonth = dishCostAsOf(dish, lastMonthEndDate());
-  const marginNow = dish.price - costNow;
-  const marginLastMonth = dish.price - costLastMonth;
-  const marginPctNow = dish.price>0 ? (marginNow/dish.price)*100 : 0;
-  const marginPctLastMonth = dish.price>0 ? (marginLastMonth/dish.price)*100 : 0;
-  return {costNow, costLastMonth, marginNow, marginLastMonth, marginPctNow, marginPctLastMonth, delta: marginNow-marginLastMonth};
-}
-function statusOf(pct){
-  if(pct<=foodCostTargetPct) return {label:t('status_profitable'), color:'var(--basil)', bg:'var(--basil-soft)'};
-  if(pct<=foodCostWarningPct) return {label:t('status_borderline'), color:'var(--saffron)', bg:'var(--saffron-soft)'};
-  return {label:t('status_low_margin'), color:'var(--tomato)', bg:'var(--tomato-soft)'};
-}
 function allMonths(){
   const set = new Set(purchases.map(p=>monthKey(p.date)));
   return [...set].sort().reverse();
@@ -676,18 +533,16 @@ function render(){
   const isTabSwitch = activeTab !== lastRenderedTab;
   lastRenderedTab = activeTab;
   document.documentElement.lang = uiLang;
-  document.title = uiLang==='en' ? 'PlatoCost — Inventory & Menu' : 'PlatoCost — Inventario & Menú';
+  document.title = uiLang==='en' ? 'PlatoCost — Inventory' : 'PlatoCost — Inventario';
   app.innerHTML = `
     ${topbar()}
     <div class="view-container ${isTabSwitch ? 'view-anim' : ''}">
       ${activeTab==='dashboard' ? dashboardView() : ''}
       ${activeTab==='inventario' ? inventarioView() : ''}
       ${activeTab==='recibos' ? recibosView() : ''}
-      ${activeTab==='menu' ? (menuUnlocked ? menuView() : pinGateView()) : ''}
     </div>
     ${showItemModal ? itemModal() : ''}
     ${showPurchaseModal ? purchaseModal() : ''}
-    ${showDishModal ? dishModal() : ''}
     ${showScanModal ? scanModal() : ''}
     ${showReceiptDetail ? receiptDetailModal() : ''}
     ${showPriceHistoryModal ? priceHistoryModal() : ''}
@@ -707,7 +562,12 @@ function topbar(){
         <div class="brand-name">ATRON</div>
       </div>
     </div>
-    <button class="lang-toggle" id="btn-lang-toggle" title="${uiLang==='es'?'Switch to English':'Cambiar a español'}">${uiLang==='es'?'EN':'ES'}</button>
+    <div class="topbar-actions" style="display:flex;gap:8px;">
+      <button class="lang-toggle" id="btn-alert-settings" title="${t('btn_alert_settings')}">
+        <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+      <button class="lang-toggle" id="btn-lang-toggle" title="${uiLang==='es'?'Switch to English':'Cambiar a español'}">${uiLang==='es'?'EN':'ES'}</button>
+    </div>
   </div>`;
 }
 
@@ -716,7 +576,6 @@ function bottomNav(){
     {tab:'dashboard', label:t('tab_dashboard'), icon:`<polyline points="3 11 12 4 21 11"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/>`},
     {tab:'inventario', label:t('tab_inventory'), icon:`<polygon points="12 3 21 7.5 21 16.5 12 21 3 16.5 3 7.5"/><polyline points="3 7.5 12 12 21 7.5"/><line x1="12" y1="12" x2="12" y2="21"/>`},
     {tab:'recibos', label:t('tab_receipts'), icon:`<path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/>`},
-    {tab:'menu', label:t('tab_menu'), icon:`<line x1="7" y1="2" x2="7" y2="10"/><line x1="5" y1="2" x2="5" y2="6"/><line x1="9" y1="2" x2="9" y2="6"/><line x1="7" y1="10" x2="7" y2="22"/><path d="M17 2c-1.7 0-3 2-3 5s1.3 5 3 5v10"/>`},
   ];
   return `
   <div class="bottom-nav">
@@ -1306,13 +1165,6 @@ function alertSettingsModal(){
       <h3>${t('alert_title')}</h3>
       <div class="sub">${t('alert_sub')}</div>
 
-      <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;">${t('food_cost_target_title')}</label>
-      <div class="field-row">
-        <div class="field"><label>${t('food_cost_target_label')}</label><input id="food-cost-target-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftFoodCostTarget)}"></div>
-        <div class="field"><label>${t('food_cost_warning_label')}</label><input id="food-cost-warning-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftFoodCostWarning)}"></div>
-      </div>
-      <div class="helper-note">${t('food_cost_target_helper')}</div>
-
       <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;">${t('alert_threshold_title')}</label>
       <div class="field">
         <label>${t('alert_threshold_label')}</label>
@@ -1354,95 +1206,6 @@ function receiptDetailModal(){
       </div>
     </div>
   </div>`;
-}
-
-/* ---------- MENÚ ---------- */
-function gaugeSvg(pct){
-  const s = statusOf(pct);
-  const clamped = Math.min(pct,60);
-  const deg = (clamped/60)*360;
-  return `<div class="gauge" style="background:conic-gradient(${s.color} ${deg}deg, #EDEBE3 0deg); color:${s.color}">
-    <div style="width:42px;height:42px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;">${pct.toFixed(0)}%</div>
-  </div>`;
-}
-function pinGateView(){
-  const digits = pinEntry.split('');
-  return `
-  <div class="pin-gate">
-    <div class="pin-icon">🔒</div>
-    <h2>${t('pin_title')}</h2>
-    <p>${t('pin_sub')}</p>
-    <div class="pin-dots">
-      ${[0,1,2,3].map(i=>`<div class="pin-dot ${digits[i]?'filled':''} ${pinError?'error':''}"></div>`).join('')}
-    </div>
-    <div class="pin-keypad">
-      ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="pin-key" data-pin-digit="${n}">${n}</button>`).join('')}
-      <button class="pin-key empty" disabled></button>
-      <button class="pin-key" data-pin-digit="0">0</button>
-      <button class="pin-key backspace" data-pin-back>⌫</button>
-    </div>
-    <div class="pin-error-msg">${pinError}</div>
-  </div>`;
-}
-
-function menuView(){
-  const now = new Date();
-  const thisMonthName = monthLabel(localMonthStr(now));
-  const lm = new Date(now.getFullYear(), now.getMonth()-1, 1);
-  const lastMonthName = monthLabel(lm.getFullYear()+'-'+String(lm.getMonth()+1).padStart(2,'0'));
-
-  return `
-  <div class="section-head">
-    <div><h2>${t('menu_title')}</h2><p>${t('menu_sub')}</p></div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn btn-ghost btn-sm" id="btn-alert-settings">${t('btn_alert_settings')}</button>
-      <button class="btn btn-ghost btn-sm" id="btn-lock-menu">${t('btn_lock_menu')}</button>
-      <button class="btn btn-primary" id="btn-new-dish">${t('btn_new_dish')}</button>
-    </div>
-  </div>
-  ${dishes.length===0 ? emptyState('🍽️',t('empty_dishes_title'),t('empty_dishes_sub')) : `
-  <div class="dish-grid">
-    ${dishes.map(d=>{
-      const pct=foodCostPct(d), cost=dishCost(d), s=statusOf(pct);
-      const mc = marginComparison(d);
-      const improved = mc.delta >= 0;
-      return `<div class="dish-card">
-        <div class="dish-top">
-          <div><div class="dish-name">${escapeHtml(d.name)}</div><div class="dish-cat">${escapeHtml(d.category)||t('no_category')}</div></div>
-          ${gaugeSvg(pct)}
-        </div>
-        <div class="dish-mid">
-          <div class="metric"><div class="metric-label">${t('lbl_sale_price')}</div><div class="metric-value">${money(d.price)}</div></div>
-          <div class="metric"><div class="metric-label">${t('lbl_avg_cost')}</div><div class="metric-value">${money(cost)}</div></div>
-        </div>
-        <div class="recipe-list">
-          ${d.items.map(it=>{
-            const ing=inventory.find(i=>i.id===it.ingId);
-            return ing ? `<div class="recipe-item"><span>${escapeHtml(ing.name)}</span><span>${it.qty} ${unitLabel(ing.unit)}</span></div>` : '';
-          }).join('')}
-        </div>
-        <div class="margin-compare">
-          <div class="mc-col">
-            <div class="mc-label">${t('lbl_margin')} ${lastMonthName}</div>
-            <div class="mc-value">${money(mc.marginLastMonth)}</div>
-            <div class="mc-pct">${mc.marginPctLastMonth.toFixed(1)}%</div>
-          </div>
-          <div class="mc-arrow" style="color:${improved?'var(--basil)':'var(--tomato)'};">${improved?'→ ▲':'→ ▼'}</div>
-          <div class="mc-col">
-            <div class="mc-label">${t('lbl_margin')} ${thisMonthName}</div>
-            <div class="mc-value" style="color:${improved?'var(--basil)':'var(--tomato)'};">${money(mc.marginNow)}</div>
-            <div class="mc-pct" style="color:${improved?'var(--basil)':'var(--tomato)'};">${mc.marginPctNow.toFixed(1)}%</div>
-          </div>
-        </div>
-        <div class="dish-status" style="background:${s.bg};color:${s.color};">${s.label} — ${pct.toFixed(1)}% food cost</div>
-        <div class="dish-actions">
-          <button class="link-btn" data-edit-dish="${d.id}">${t('btn_edit_recipe')}</button>
-          <button class="link-btn danger" data-del-dish="${d.id}">${t('btn_delete')}</button>
-        </div>
-      </div>`;
-    }).join('')}
-  </div>`}
-  `;
 }
 
 function emptyState(icon,title,sub){
@@ -1503,44 +1266,6 @@ function purchaseModal(){
   </div>`;
 }
 
-/* ================= MODAL: PLATO / RECETA ================= */
-function openDishModal(dish){
-  draftDish = dish ? JSON.parse(JSON.stringify(dish)) : {id:uid('d'), name:'', category:'', price:'', items:[]};
-  editingDish = dish ? dish.id : null;
-  showDishModal = true; render();
-}
-function dishModal(){
-  const availableIngs = inventory.filter(i=>!draftDish.items.some(it=>it.ingId===i.id));
-  return `
-  <div class="overlay" id="dish-overlay">
-    <div class="modal">
-      <h3>${editingDish?t('dish_edit_title'):t('dish_new_title')}</h3>
-      <div class="sub">${t('dish_sub')}</div>
-      <div class="field"><label>${t('lbl_dish_name')}</label><input id="f-name" type="text" value="${escapeHtml(draftDish.name)}" placeholder="${t('ph_dish_name_example')}"></div>
-      <div class="field-row">
-        <div class="field"><label>${t('lbl_category')}</label><input id="f-cat" type="text" value="${escapeHtml(draftDish.category)}" placeholder="${t('ph_dish_category_example')}"></div>
-        <div class="field"><label>${t('lbl_sale_price')}</label><input id="f-price" type="number" step="0.01" value="${draftDish.price}" placeholder="0.00"></div>
-      </div>
-      <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;">${t('lbl_recipe_ingredients')}</label>
-      <div class="ing-list-mini" id="ing-list-mini">
-        ${draftDish.items.length===0 ? `<div style="font-size:12.5px;color:var(--ink-soft);padding:6px 2px;">${t('no_ingredients_yet')}</div>` : draftDish.items.map((it,idx)=>{
-          const ing = inventory.find(i=>i.id===it.ingId);
-          return ing ? `<div class="ing-list-mini-item"><span>${escapeHtml(ing.name)} — ${it.qty} ${unitLabel(ing.unit)}</span><button class="remove-x" data-remove-item="${idx}">✕</button></div>` : '';
-        }).join('')}
-      </div>
-      ${availableIngs.length>0 ? `
-      <div class="add-ing-row">
-        <div class="field"><label>${t('lbl_ingredient')}</label><select id="add-ing-select">${availableIngs.map(i=>`<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}</select></div>
-        <div class="field" style="max-width:90px;"><label>${t('lbl_weight_qty')}</label><input id="add-ing-qty" type="number" step="0.01" placeholder="0.0"></div>
-        <button class="btn btn-ghost btn-sm" id="btn-add-item">${t('btn_add')}</button>
-      </div>` : `<div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;">${t('all_ings_in_recipe')}</div>`}
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="btn-cancel-dish">${t('btn_cancel')}</button>
-        <button class="btn btn-primary" id="btn-save-dish">${t('btn_save_dish')}</button>
-      </div>
-    </div>
-  </div>`;
-}
 
 /* ================= MODAL: ESCANEAR RECIBO (lectura con Claude API vía Netlify Function) ================= */
 function openScanModal(){
@@ -2314,14 +2039,9 @@ function attachEvents(){
 
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
   const btnNewPurchase=document.getElementById('btn-new-purchase'); if(btnNewPurchase) btnNewPurchase.onclick=()=>openPurchaseModal();
-  const btnNewDish=document.getElementById('btn-new-dish'); if(btnNewDish) btnNewDish.onclick=()=>openDishModal(null);
-  const btnLockMenu=document.getElementById('btn-lock-menu');
-  if(btnLockMenu) btnLockMenu.onclick=()=>{ menuUnlocked=false; pinEntry=''; pinError=''; render(); };
   const btnAlertSettings=document.getElementById('btn-alert-settings');
   if(btnAlertSettings) btnAlertSettings.onclick=()=>{
     draftThreshold=priceAlertThreshold;
-    draftFoodCostTarget=foodCostTargetPct;
-    draftFoodCostWarning=foodCostWarningPct;
     showAlertSettingsModal=true; render();
   };
 
@@ -2334,45 +2054,11 @@ function attachEvents(){
     if(saveAlertBtn) saveAlertBtn.onclick=()=>{
       const val=parseFloat(document.getElementById('alert-threshold-input').value);
       if(val>0) priceAlertThreshold=val;
-      let target=parseFloat(document.getElementById('food-cost-target-input').value);
-      let warning=parseFloat(document.getElementById('food-cost-warning-input').value);
-      if(target>0 && target<=100 && warning>0 && warning<=100){
-        // El umbral "poco rentable" siempre tiene que quedar por encima del "rentable",
-        // si no el rango de "en el límite" queda invertido/vacío
-        if(warning<=target) warning = target+1;
-        foodCostTargetPct = target;
-        foodCostWarningPct = warning;
-      }
       saveState();
       showAlertSettingsModal=false; render();
     };
   }
 
-  document.querySelectorAll('[data-pin-digit]').forEach(btn=>{
-    btn.onclick=()=>{
-      if(pinEntry.length>=4) return;
-      pinEntry += btn.dataset.pinDigit;
-      pinError='';
-      if(pinEntry.length===4){
-        const attempt=pinEntry;
-        checkPin(attempt).then(ok=>{
-          if(pinEntry!==attempt) return; // el usuario ya borró/reinició mientras se verificaba
-          if(ok){
-            menuUnlocked=true; pinEntry=''; pinError='';
-            render();
-          } else {
-            pinError=t('pin_error');
-            render();
-            setTimeout(()=>{ if(pinEntry===attempt){ pinEntry=''; render(); } }, 500);
-          }
-        });
-        return;
-      }
-      render();
-    };
-  });
-  const pinBack=document.querySelector('[data-pin-back]');
-  if(pinBack) pinBack.onclick=()=>{ pinEntry=pinEntry.slice(0,-1); pinError=''; render(); };
   const btnScanFab=document.getElementById('btn-scan-fab');
   if(btnScanFab) btnScanFab.onclick=openScanModal;
 
@@ -2416,8 +2102,6 @@ function attachEvents(){
 
   document.querySelectorAll('[data-edit-item]').forEach(b=>{ b.onclick=()=>openItemModal(inventory.find(i=>i.id===b.dataset.editItem)); });
   document.querySelectorAll('[data-del-item]').forEach(b=>{ b.onclick=()=>{ inventory=inventory.filter(i=>i.id!==b.dataset.delItem); saveState(); render(); }; });
-  document.querySelectorAll('[data-edit-dish]').forEach(b=>{ b.onclick=()=>openDishModal(dishes.find(d=>d.id===b.dataset.editDish)); });
-  document.querySelectorAll('[data-del-dish]').forEach(b=>{ b.onclick=()=>{ dishes=dishes.filter(d=>d.id!==b.dataset.delDish); saveState(); render(); }; });
 
   /* Modal ingrediente */
   const itemOverlay=document.getElementById('item-overlay');
@@ -2458,33 +2142,6 @@ function attachEvents(){
       if(ing){ ing.costPerUnit=totalPrice/qty; ing.updated=true; ing.qtyOnHand=(ing.qtyOnHand||0)+qty; }
       saveState();
       closePurchaseModal();
-    };
-  }
-
-  /* Modal plato */
-  const dishOverlay=document.getElementById('dish-overlay');
-  if(dishOverlay){
-    dishOverlay.addEventListener('mousedown',(e)=>{ if(e.target===dishOverlay) closeDishModal(); });
-    document.getElementById('btn-cancel-dish').onclick=closeDishModal;
-    document.getElementById('f-name').oninput=(e)=>draftDish.name=e.target.value;
-    document.getElementById('f-cat').oninput=(e)=>draftDish.category=e.target.value;
-    document.getElementById('f-price').oninput=(e)=>draftDish.price=parseFloat(e.target.value)||0;
-    document.querySelectorAll('[data-remove-item]').forEach(b=>{ b.onclick=()=>{ draftDish.items.splice(parseInt(b.dataset.removeItem),1); render(); }; });
-    const btnAddItem=document.getElementById('btn-add-item');
-    if(btnAddItem){
-      btnAddItem.onclick=()=>{
-        const sel=document.getElementById('add-ing-select');
-        const qtyInp=document.getElementById('add-ing-qty');
-        const qty=parseFloat(qtyInp.value);
-        if(sel.value && qty>0){ draftDish.items.push({ingId:sel.value, qty}); render(); }
-      };
-    }
-    document.getElementById('btn-save-dish').onclick=()=>{
-      if(!draftDish.name || !draftDish.price) return;
-      if(editingDish){ const idx=dishes.findIndex(d=>d.id===editingDish); dishes[idx]=draftDish; }
-      else dishes.push(draftDish);
-      saveState();
-      closeDishModal();
     };
   }
 
@@ -2552,7 +2209,6 @@ function attachEvents(){
 
 function closeItemModal(){ showItemModal=false; editingItem=null; draftItem=null; render(); }
 function closePurchaseModal(){ showPurchaseModal=false; render(); }
-function closeDishModal(){ showDishModal=false; editingDish=null; draftDish=null; render(); }
 
 loadState();
 render();
