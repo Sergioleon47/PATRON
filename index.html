@@ -13,13 +13,14 @@
     --navy:#008C45; --navy-soft:#2FAE68; --tomato:#CD212A; --saffron:#D9605A; --basil:#008C45;
     --basil-soft:#E3F3E9; --tomato-soft:#FBE4E4; --saffron-soft:#FCEBE9;
     --radius:14px; --shadow:0 1px 2px rgba(32,33,36,0.08), 0 8px 24px rgba(32,33,36,0.08);
+    --stock-ok:#0D9488; --stock-warn:#F2A93B; --stock-crit:#E5484D;
   }
   *{box-sizing:border-box;}
   html{touch-action:manipulation;}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
   h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.01em;}
   .mono{font-family:'IBM Plex Mono',monospace;}
-  #app{max-width:1180px;margin:0 auto;padding:28px 24px 80px;}
+  #app{max-width:1180px;margin:0 auto;padding:28px 24px 100px;}
 
   .view-container{}
   .view-container.view-anim{animation:viewFadeIn .65s cubic-bezier(0.22,1,0.36,1);}
@@ -30,8 +31,7 @@
 
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
   .topbar .brand{order:1;}
-  .topbar .tabs{order:2;}
-  .topbar .lang-toggle{order:3;}
+  .topbar .lang-toggle{order:2;}
   .brand{display:flex;align-items:center;gap:2px;}
   .brand-mark{
     width:42px;height:42px;border-radius:11px;
@@ -43,14 +43,17 @@
   .brand-name{font-size:20px;font-weight:700;}
   .brand-sub{font-size:12px;color:var(--ink-soft);margin-top:1px;}
 
-  .tabs{display:flex;gap:6px;background:#E8E5DC;padding:5px;border-radius:12px;flex-wrap:wrap;}
-  .tab{padding:9px 14px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink-soft);border:none;background:transparent;transition:all .4s ease;white-space:nowrap;}
-  .tab.active{background:var(--navy);color:#fff;}
-  .tab:not(.active):hover{color:var(--ink);}
-
   .lang-toggle{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--ink-soft);font-size:11.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);flex-shrink:0;transition:transform .2s ease, border-color .2s ease, color .2s ease;}
   .lang-toggle:hover{border-color:var(--navy);color:var(--navy);}
   .lang-toggle:active{transform:scale(0.92);}
+
+  /* BOTTOM NAV */
+  .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);display:flex;z-index:40;box-shadow:0 -2px 12px rgba(32,33,36,0.08);padding-bottom:env(safe-area-inset-bottom);}
+  .bottom-nav-item{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px 8px;color:var(--ink-soft);font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;position:relative;font-family:'Inter';transition:color .25s ease;}
+  .bottom-nav-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .bottom-nav-item.active{color:var(--navy);}
+  .bottom-nav-item.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:3px;border-radius:0 0 3px 3px;background:var(--navy);}
+  .bottom-nav-item:active{transform:scale(0.95);}
 
   .scan-card{cursor:pointer;}
   .scan-fab-mini{width:52px;height:52px;flex-shrink:0;position:relative;transition:transform .25s ease;}
@@ -109,6 +112,37 @@
   .link-btn:hover{text-decoration:underline;}
   .link-btn.danger{color:var(--tomato);}
 
+
+  /* STOCK ANALYTICS CARD */
+  .stock-card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);padding:20px 20px 0;margin-bottom:24px;}
+  .stock-card-title{font-size:15px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-family:'Space Grotesk';margin:0 0 6px;}
+  .stock-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);}
+  .stock-row:last-of-type{border-bottom:none;}
+  .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;border:2px solid var(--stock-ok);background:#fff;}
+  .stock-icon-ring.warn{border-color:var(--stock-warn);}
+  .stock-icon-ring.crit{border-color:var(--stock-crit);}
+  .stock-main{flex:1;min-width:0;}
+  .stock-name{font-size:12.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;margin-bottom:6px;}
+  .stock-bar-track{background:#E9EAEC;border-radius:20px;height:20px;overflow:hidden;position:relative;}
+  .stock-bar-fill{height:100%;border-radius:20px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;min-width:34px;transition:width .4s ease;}
+  .stock-bar-fill span{color:#fff;font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono';white-space:nowrap;}
+  .stock-bar-fill.ok{background:var(--stock-ok);}
+  .stock-bar-fill.warn{background:var(--stock-warn);}
+  .stock-bar-fill.crit{background:var(--stock-crit);}
+  .stock-caption{font-size:11px;color:var(--ink-soft);margin-top:5px;}
+  .stock-actions{flex-shrink:0;text-align:center;}
+  .stock-actions-label{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);margin-bottom:6px;white-space:nowrap;}
+  .stock-actions-btns{display:flex;gap:6px;}
+  .stock-icon-btn{width:30px;height:30px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:#fff;transition:transform .2s ease;}
+  .stock-icon-btn:active{transform:scale(0.9);}
+  .stock-icon-btn.cart{background:var(--stock-ok);}
+  .stock-icon-btn.whatsapp{background:#25D366;}
+  .stock-summary{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:6px 0 20px;padding-top:16px;border-top:1px solid var(--line);flex-wrap:wrap;}
+  .stock-summary-label{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
+  .stock-summary-value{font-size:20px;font-weight:700;color:var(--stock-crit);font-family:'Space Grotesk';margin-top:2px;}
+  .stock-summary-right{text-align:right;}
+  .stock-suggest-btn{background:var(--stock-ok);color:#fff;border:none;border-radius:20px;padding:9px 18px;font-size:12px;font-weight:700;margin-top:4px;cursor:pointer;}
+  .stock-suggest-btn:hover{opacity:.9;}
 
   /* DISH CARDS */
   .dish-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
@@ -206,12 +240,8 @@
   .mi-fields select, .mi-fields input{padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:#fff;}
 
   @media (max-width:720px){
-    #app{padding:16px 14px 70px;}
+    #app{padding:16px 14px 90px;}
     .topbar{margin-bottom:16px;row-gap:10px;}
-    .topbar .lang-toggle{order:2;}
-    .topbar .tabs{order:3;}
-    .tabs{width:100%;}
-    .tab{flex:1;text-align:center;}
     .table-wrap{overflow-x:auto;}
     .mi-fields{flex-direction:column;}
     .field-row{flex-wrap:wrap;}
@@ -333,9 +363,9 @@ const I18N = {
   es: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventario', tab_receipts:'Recibos', tab_menu:'Menú',
     dash_spending_of:'Gasto de', dash_see_all_months:'Ver todos los meses',
-    dash_scan_receipt:'Escanear recibo', dash_inventory_title:'Inventario',
-    dash_inventory_sub:'Precio por unidad en cada una de tus últimas 3 compras', price_updated:'precio actualizado',
-    dash_col_2ago:'2 compras atrás', dash_col_prev:'Compra anterior', dash_col_latest:'Última compra', dash_no_purchase_yet:'—',
+    dash_scan_receipt:'Escanear recibo', price_updated:'precio actualizado',
+    stock_status_title:'Estado del inventario', stock_of:'de', stock_critical_alerts:'Alertas críticas:',
+    stock_suggested_order:'Pedido sugerido:', stock_view_detail:'Ver detalle', stock_quick_order:'Pedido rápido',
     empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer ingrediente para empezar a costear tus platos.',
     empty_receipts_title:'Aún no hay recibos guardados', empty_receipts_sub:'Cuando escanees uno desde el botón de escanear, aparecerá aquí con la foto original y los productos detectados.',
     empty_dishes_title:'Aún no tienes platos', empty_dishes_sub:'Agrega tu primer plato del menú.',
@@ -412,9 +442,9 @@ const I18N = {
   en: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventory', tab_receipts:'Receipts', tab_menu:'Menu',
     dash_spending_of:'Spending for', dash_see_all_months:'See all months',
-    dash_scan_receipt:'Scan receipt', dash_inventory_title:'Inventory',
-    dash_inventory_sub:'Unit price for each of your last 3 purchases', price_updated:'price updated',
-    dash_col_2ago:'2 purchases ago', dash_col_prev:'Previous purchase', dash_col_latest:'Latest purchase', dash_no_purchase_yet:'—',
+    dash_scan_receipt:'Scan receipt', price_updated:'price updated',
+    stock_status_title:'Inventory status', stock_of:'of', stock_critical_alerts:'Critical alerts:',
+    stock_suggested_order:'Suggested order:', stock_view_detail:'View detail', stock_quick_order:'Quick order',
     empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first ingredient to start costing your dishes.',
     empty_receipts_title:'No receipts saved yet', empty_receipts_sub:"Once you scan one from the scan button, it'll show up here with the original photo and the detected products.",
     empty_dishes_title:"You don't have any dishes yet", empty_dishes_sub:'Add your first menu dish.',
@@ -591,15 +621,6 @@ function lastPriceChangePct(ingId){
   if(prev<=0) return null;
   return ((latest-prev)/prev)*100;
 }
-/* Las últimas N compras de un ingrediente, de la más vieja a la más nueva de ese grupo
-   (para mostrar en columnas — la última columna siempre es la compra más reciente) */
-function lastNPurchases(ingId, n){
-  return purchases
-    .filter(p=>p.ingId===ingId && p.qty>0)
-    .sort((a,b)=>new Date(b.date)-new Date(a.date))
-    .slice(0, n)
-    .reverse();
-}
 function priceChangeBadge(pct){
   if(pct===null) return '';
   const up = pct>0.5, down = pct<-0.5;
@@ -660,6 +681,7 @@ function render(){
     ${showPriceHistoryModal ? priceHistoryModal() : ''}
     ${showMonthlySpendModal ? monthlySpendModal() : ''}
     ${showAlertSettingsModal ? alertSettingsModal() : ''}
+    ${bottomNav()}
   `;
   attachEvents();
 }
@@ -673,13 +695,25 @@ function topbar(){
         <div class="brand-name">ATRON</div>
       </div>
     </div>
-    <div class="tabs">
-      <button class="tab ${activeTab==='dashboard'?'active':''}" data-tab="dashboard">${t('tab_dashboard')}</button>
-      <button class="tab ${activeTab==='inventario'?'active':''}" data-tab="inventario">${t('tab_inventory')}</button>
-      <button class="tab ${activeTab==='recibos'?'active':''}" data-tab="recibos">${t('tab_receipts')}</button>
-      <button class="tab ${activeTab==='menu'?'active':''}" data-tab="menu">${t('tab_menu')}</button>
-    </div>
     <button class="lang-toggle" id="btn-lang-toggle" title="${uiLang==='es'?'Switch to English':'Cambiar a español'}">${uiLang==='es'?'EN':'ES'}</button>
+  </div>`;
+}
+
+function bottomNav(){
+  const items = [
+    {tab:'dashboard', label:t('tab_dashboard'), icon:`<polyline points="3 11 12 4 21 11"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/>`},
+    {tab:'inventario', label:t('tab_inventory'), icon:`<polygon points="12 3 21 7.5 21 16.5 12 21 3 16.5 3 7.5"/><polyline points="3 7.5 12 12 21 7.5"/><line x1="12" y1="12" x2="12" y2="21"/>`},
+    {tab:'recibos', label:t('tab_receipts'), icon:`<path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/>`},
+    {tab:'menu', label:t('tab_menu'), icon:`<line x1="7" y1="2" x2="7" y2="10"/><line x1="5" y1="2" x2="5" y2="6"/><line x1="9" y1="2" x2="9" y2="6"/><line x1="7" y1="10" x2="7" y2="22"/><path d="M17 2c-1.7 0-3 2-3 5s1.3 5 3 5v10"/>`},
+  ];
+  return `
+  <div class="bottom-nav">
+    ${items.map(i=>`
+      <button class="bottom-nav-item ${activeTab===i.tab?'active':''}" data-tab="${i.tab}">
+        <svg viewBox="0 0 24 24">${i.icon}</svg>
+        <span>${i.label}</span>
+      </button>
+    `).join('')}
   </div>`;
 }
 
@@ -688,6 +722,72 @@ function scanIconSvg(){
   return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <circle cx="50" cy="50" r="48" fill="var(--tomato)"/>
   </svg>`;
+}
+
+/* Ícono redondo por ingrediente, heurística por palabras clave en el nombre.
+   Placeholder de apariencia — cuando definamos el contenido real se puede
+   reemplazar por un selector manual o por categoría. */
+function stockIcon(name){
+  const n = (name||'').toLowerCase();
+  if(/beef|res|steak|carne/.test(n)) return '🥩';
+  if(/chicken|pollo/.test(n)) return '🍗';
+  if(/shrimp|camar|fish|pescado|seafood|marisco/.test(n)) return '🍤';
+  if(/cheese|queso/.test(n)) return '🧀';
+  if(/tomato|tomate/.test(n)) return '🍅';
+  if(/bread|pan|brioche|tortilla/.test(n)) return '🍞';
+  if(/flour|harina/.test(n)) return '🌾';
+  if(/oil|aceite/.test(n)) return '🫒';
+  return '📦';
+}
+function stockStatus(pct){ return pct>=60 ? 'ok' : pct>=20 ? 'warn' : 'crit'; }
+
+/* stockTarget es un placeholder mientras definimos de dónde sale el "stock objetivo"
+   real (ver conversación pendiente) — por ahora se estima a partir de lo que hay. */
+function stockRowsData(){
+  return inventory.map(i=>{
+    const target = i.stockTarget || Math.max(Math.round((i.qtyOnHand||0)*1.5), 10);
+    const pct = target>0 ? Math.min(100, Math.round(((i.qtyOnHand||0)/target)*100)) : 0;
+    return {ing:i, target, pct, status: stockStatus(pct)};
+  });
+}
+
+function stockAnalyticsCard(){
+  if(inventory.length===0) return '';
+  const rows = stockRowsData();
+  const criticalCount = rows.filter(r=>r.status==='crit').length;
+  return `
+  <div class="stock-card">
+    <h3 class="stock-card-title">${t('stock_status_title')}</h3>
+    ${rows.map(r=>`
+      <div class="stock-row">
+        <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}">${stockIcon(r.ing.name)}</div>
+        <div class="stock-main">
+          <div class="stock-name">${escapeHtml(r.ing.name)} (${unitLabel(r.ing.unit)})</div>
+          <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,10)}%;"><span>${r.pct}%</span></div></div>
+          <div class="stock-caption">${r.ing.qtyOnHand||0} ${unitLabel(r.ing.unit)} ${t('stock_of')} ${r.target} ${unitLabel(r.ing.unit)}</div>
+        </div>
+        ${r.status==='crit' ? `
+        <div class="stock-actions">
+          <div class="stock-actions-label">${t('stock_quick_order')}</div>
+          <div class="stock-actions-btns">
+            <button class="stock-icon-btn cart" title="${t('stock_quick_order')}">🛒</button>
+            <button class="stock-icon-btn whatsapp" title="WhatsApp">💬</button>
+          </div>
+        </div>` : ''}
+      </div>
+    `).join('')}
+    <div class="stock-summary">
+      <div>
+        <div class="stock-summary-label">${t('stock_critical_alerts')}</div>
+        <div class="stock-summary-value">${criticalCount}</div>
+      </div>
+      <div class="stock-summary-right">
+        <div class="stock-summary-label">${t('stock_suggested_order')}</div>
+        <button class="btn stock-suggest-btn">${t('stock_view_detail')}</button>
+      </div>
+    </div>
+  </div>
+  `;
 }
 
 function dashboardView(){
@@ -712,35 +812,7 @@ function dashboardView(){
     </div>
   </div>
 
-  <div class="section-head"><div><h2>${t('dash_inventory_title')}</h2><p>${t('dash_inventory_sub')}</p></div></div>
-  <div class="table-wrap scroll-list">
-    ${inventory.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) : `
-    <table>
-      <thead><tr>
-        <th>${t('th_ingredient')}</th>
-        <th>${t('dash_col_2ago')}</th>
-        <th>${t('dash_col_prev')}</th>
-        <th>${t('dash_col_latest')}</th>
-      </tr></thead>
-      <tbody>
-        ${inventory.map(i=>{
-          const last3 = lastNPurchases(i.id, 3); // más vieja a más nueva, hasta 3
-          const cells = new Array(3-last3.length).fill(null).concat(last3);
-          const changePct = lastPriceChangePct(i.id);
-          return `<tr>
-            <td style="font-weight:600;">${escapeHtml(i.name)}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</td>
-            ${cells.map((p,idx)=>{
-              if(!p) return `<td class="mono-cell" style="color:var(--ink-soft);">${t('dash_no_purchase_yet')}</td>`;
-              const unitPrice = p.totalPrice/p.qty;
-              const isLast = idx===cells.length-1;
-              return `<td class="mono-cell" style="${isLast?'font-weight:700;':''}">${money(unitPrice)}/${unitLabel(i.unit)}${isLast?priceChangeBadge(changePct):''}<div style="font-size:10px;color:var(--ink-soft);margin-top:2px;font-family:'Inter';">${escapeHtml(p.date)}</div></td>`;
-            }).join('')}
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>
-    `}
-  </div>
+  ${stockAnalyticsCard()}
   `;
 }
 
@@ -1921,7 +1993,7 @@ async function shareReceipt(r){
 
 /* ================= EVENTOS ================= */
 function attachEvents(){
-  document.querySelectorAll('.tab').forEach(t=>{ t.onclick=()=>{ activeTab=t.dataset.tab; render(); }; });
+  document.querySelectorAll('.bottom-nav-item').forEach(t=>{ t.onclick=()=>{ activeTab=t.dataset.tab; render(); }; });
   const btnLangToggle=document.getElementById('btn-lang-toggle');
   if(btnLangToggle) btnLangToggle.onclick=()=>setLang(uiLang==='es'?'en':'es');
 
