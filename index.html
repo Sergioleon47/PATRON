@@ -1599,7 +1599,7 @@ function scanModal(){
 
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-scan">${t('btn_cancel')}</button>
-        ${scanState==='matched' ? `<button class="btn btn-primary" id="btn-apply-scan" ${scanDuplicateOf && !scanDuplicateConfirmed ? 'disabled':''}>${t('btn_confirm_apply')}</button>` : ''}
+        ${scanState==='matched' ? `<button class="btn btn-primary" id="btn-apply-scan" ${(scanExtracted.length===0 || (scanDuplicateOf && !scanDuplicateConfirmed)) ? 'disabled':''}>${t('btn_confirm_apply')}</button>` : ''}
         ${scanState==='error' ? `<button class="btn btn-primary" id="btn-retry-scan">${t('btn_retry_scan')}</button><button class="btn btn-ghost" id="btn-fallback-manual">${t('btn_manual_register')}</button>` : ''}
       </div>
     </div>
