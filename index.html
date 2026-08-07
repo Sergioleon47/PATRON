@@ -307,6 +307,7 @@ let scanExtracted = []; // [{name, qty, unit, totalPrice, matchedIngId(new/null)
 let scanErrorMsg = '';
 let scanSupplier = '';
 let scanDate = localDateStr();
+let scanInvoiceTotal = null; // total impreso en la factura, según lo lee Claude — se guarda aparte de la suma de líneas confirmadas
 
 /* ================= IDIOMA (ES/EN) =================
    El idioma solo afecta los textos de la interfaz (botones, títulos, ayudas).
@@ -370,6 +371,8 @@ const I18N = {
     lbl_ingredient:'Ingrediente', lbl_qty_bought:'Cantidad comprada', ph_qty_example:'Ej. 25',
     lbl_total_paid:'Precio total pagado', ph_price_example:'Ej. 85.00', lbl_supplier:'Proveedor',
     ph_supplier_example:'Ej. US Foods', lbl_date:'Fecha', btn_save_purchase:'Guardar compra',
+    lbl_invoice_total:'Total de la factura', ph_invoice_total:'Ej. 245.90',
+    invoice_total_helper:'Este es el monto que se usa para el gasto del mes — corrígelo si no coincide con el total impreso del recibo.',
     scan_title:'Escanear recibo', scan_sub:'Sube una foto del recibo — el sistema extrae los productos y precios, tú confirmas antes de aplicar',
     scan_tap_photo:'Toca para tomar o subir una foto', scan_jpg_png:'JPG o PNG, recibo de proveedor',
     scan_reading:'Leyendo el recibo con IA (puede tardar unos segundos)...',
@@ -443,6 +446,8 @@ const I18N = {
     lbl_ingredient:'Ingredient', lbl_qty_bought:'Quantity bought', ph_qty_example:'e.g. 25',
     lbl_total_paid:'Total price paid', ph_price_example:'e.g. 85.00', lbl_supplier:'Supplier',
     ph_supplier_example:'e.g. US Foods', lbl_date:'Date', btn_save_purchase:'Save purchase',
+    lbl_invoice_total:'Invoice total', ph_invoice_total:'e.g. 245.90',
+    invoice_total_helper:"This is the amount used for the month's spending — correct it if it doesn't match the printed total on the receipt.",
     scan_title:'Scan receipt', scan_sub:'Upload a photo of the receipt — the system extracts products and prices, you confirm before applying',
     scan_tap_photo:'Tap to take or upload a photo', scan_jpg_png:'JPG or PNG, supplier receipt',
     scan_reading:'Reading the receipt with AI (this can take a few seconds)...',
@@ -1431,7 +1436,7 @@ function purchaseModal(){
 /* ================= MODAL: ESCANEAR RECIBO (lectura con Claude API vía Netlify Function) ================= */
 function openScanModal(){
   scanState='idle'; scanImages=[]; scanExtracted=[]; scanErrorMsg='';
-  scanSupplier=''; scanDate=localDateStr();
+  scanSupplier=''; scanDate=localDateStr(); scanInvoiceTotal=null;
   scanDuplicateOf=null; scanDuplicateConfirmed=false;
   showScanModal=true; render();
 }
@@ -1488,6 +1493,11 @@ function scanModal(){
           <div class="field"><label>${t('lbl_supplier')}</label><input id="scan-supplier" type="text" value="${escapeHtml(scanSupplier)}" placeholder="${t('ph_supplier_example')}"></div>
           <div class="field"><label>${t('lbl_date')}</label><input id="scan-date" type="date" value="${escapeHtml(scanDate)}"></div>
         </div>
+        <div class="field">
+          <label>${t('lbl_invoice_total')}</label>
+          <input id="scan-invoice-total" type="number" step="0.01" value="${scanInvoiceTotal!==null?scanInvoiceTotal:''}" placeholder="${t('ph_invoice_total')}">
+        </div>
+        <div class="helper-note">${t('invoice_total_helper')}</div>
 
         ${(()=>{
           const increases = scanExtracted.filter(item=>{
@@ -1894,6 +1904,7 @@ async function processReceiptImage(){
 
     scanSupplier = parsed.supplier || '';
     scanDate = parsed.date || localDateStr();
+    scanInvoiceTotal = typeof parsed.invoice_total==='number' ? parsed.invoice_total : (parseFloat(parsed.invoice_total)||null);
 
     scanExtracted = parsed.items.map(it=>{
       const nameLower = (it.name||'').toLowerCase().trim();
@@ -1920,12 +1931,14 @@ async function processReceiptImage(){
       };
     });
 
-    // Detección de posible recibo duplicado: mismo proveedor + fecha + total aproximado
-    const totalSum = scanExtracted.reduce((s,it)=>s+it.totalPrice,0);
+    // Detección de posible recibo duplicado: mismo proveedor + fecha + total aproximado.
+    // Preferimos el total impreso de la factura (más confiable) y si no vino, la suma
+    // de las líneas leídas — el mismo criterio que se usa para guardar el recibo.
+    const compareTotal = scanInvoiceTotal>0 ? scanInvoiceTotal : scanExtracted.reduce((s,it)=>s+it.totalPrice,0);
     scanDuplicateOf = receipts.find(r=>
       (r.supplier||'').toLowerCase()===(scanSupplier||'').toLowerCase() &&
       r.date===scanDate &&
-      Math.abs(r.total-totalSum)<0.5
+      Math.abs(r.total-compareTotal)<0.5
     ) || null;
     scanDuplicateConfirmed = false;
 
@@ -1971,10 +1984,15 @@ function applyScanResults(){
   });
 
   if(appliedItems.length>0){
+    const itemsSum = appliedItems.reduce((s,i)=>s+i.totalPrice,0);
+    // Preferimos el total impreso de la factura (lo que de verdad se pagó, incluye
+    // impuestos/cargos que no vienen como línea de producto) sobre la suma de los
+    // productos confirmados, que puede quedar corta si algo no se leyó o se sacó de la lista.
+    const receiptTotal = scanInvoiceTotal>0 ? scanInvoiceTotal : itemsSum;
     receipts.push({
       id:uid('r'), images:scanImages.slice(),
       supplier:scanSupplier||t('fallback_unspecified'), date:scanDate,
-      total: appliedItems.reduce((s,i)=>s+i.totalPrice,0),
+      total: receiptTotal,
       itemCount: appliedItems.length, appliedItems, createdAt: new Date().toISOString(),
       purchaseIds: createdPurchaseIds
     });
@@ -2402,6 +2420,8 @@ function attachEvents(){
     if(supplierInp) supplierInp.oninput=(e)=>scanSupplier=e.target.value;
     const dateInp=document.getElementById('scan-date');
     if(dateInp) dateInp.oninput=(e)=>scanDate=e.target.value;
+    const invoiceTotalInp=document.getElementById('scan-invoice-total');
+    if(invoiceTotalInp) invoiceTotalInp.oninput=(e)=>scanInvoiceTotal=parseFloat(e.target.value)||null;
     const dupCheck=document.getElementById('scan-dup-confirm');
     if(dupCheck) dupCheck.onchange=(e)=>{ scanDuplicateConfirmed=e.target.checked; render(); };
 
