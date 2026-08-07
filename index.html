@@ -46,6 +46,7 @@
   .lang-toggle{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--ink-soft);font-size:11.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);flex-shrink:0;transition:transform .2s ease, border-color .2s ease, color .2s ease;}
   .lang-toggle:hover{border-color:var(--navy);color:var(--navy);}
   .lang-toggle:active{transform:scale(0.92);}
+  #btn-alert-settings, #btn-alert-settings:hover{color:var(--ink-soft);border-color:var(--line);}
 
   /* BOTTOM NAV */
   .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:#A9E0B9;border-top:1px solid var(--line);display:flex;z-index:40;box-shadow:0 -2px 12px rgba(32,33,36,0.08);padding-bottom:env(safe-area-inset-bottom);}
@@ -139,13 +140,10 @@
   .stock-bar-fill.crit{background:var(--stock-crit);}
   .stock-caption{font-size:11px;color:var(--ink-soft);margin-top:5px;}
   .stock-actions{flex-shrink:0;text-align:center;}
-  .stock-actions-label{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);margin-bottom:6px;white-space:nowrap;}
   .stock-actions-btns{display:flex;gap:6px;}
   .stock-icon-btn{width:30px;height:30px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:#fff;transition:transform .2s ease;}
   .stock-icon-btn:active{transform:scale(0.9);}
   .stock-icon-btn svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
-  .stock-icon-btn.cart{background:var(--stock-ok);}
-  .stock-icon-btn.whatsapp{background:#25D366;}
   .stock-icon-btn.history{background:#9AA0A6;}
   .stock-icon-btn.edit{background:var(--stock-ok);}
   .inv-row-meta{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:2px;}
@@ -312,7 +310,7 @@ const I18N = {
     dash_spending_of:'Gasto de', dash_see_all_months:'Ver todos los meses',
     dash_scan_receipt:'Escanear recibo', price_updated:'precio actualizado',
     stock_status_title:'Estado del inventario', stock_of:'de', stock_critical_alerts:'Alertas críticas:',
-    stock_suggested_order:'Pedido sugerido:', stock_view_detail:'Ver detalle', stock_quick_order:'Pedido rápido',
+    stock_suggested_order:'Pedido sugerido:', stock_view_detail:'Ver detalle',
     suggested_order_title:'Pedido sugerido', suggested_order_sub:'Ingredientes en nivel crítico y cuánto haría falta pedir para volver al objetivo.',
     suggested_order_empty:'Por ahora ningún ingrediente está en nivel crítico.', suggested_order_row_note:'Tenés',
     empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer ingrediente para empezar a llevar tu inventario.',
@@ -378,7 +376,7 @@ const I18N = {
     dash_spending_of:'Spending for', dash_see_all_months:'See all months',
     dash_scan_receipt:'Scan receipt', price_updated:'price updated',
     stock_status_title:'Inventory status', stock_of:'of', stock_critical_alerts:'Critical alerts:',
-    stock_suggested_order:'Suggested order:', stock_view_detail:'View detail', stock_quick_order:'Quick order',
+    stock_suggested_order:'Suggested order:', stock_view_detail:'View detail',
     suggested_order_title:'Suggested order', suggested_order_sub:'Ingredients at critical stock level and how much to order to get back to target.',
     suggested_order_empty:'No ingredients are at a critical level right now.', suggested_order_row_note:'You have',
     empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first ingredient to start tracking your inventory.',
@@ -524,14 +522,26 @@ function priceChangeBadge(pct){
   return `<span style="color:${color};font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap;">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`;
 }
 function allMonths(){
-  const set = new Set(purchases.map(p=>monthKey(p.date)));
+  const set = new Set([...purchases.map(p=>monthKey(p.date)), ...receipts.map(r=>monthKey(r.date))]);
   return [...set].sort().reverse();
 }
-function purchasesForMonth(key){
-  return purchases.filter(p=>monthKey(p.date)===key);
+/* IDs de compras que ya vinieron de un recibo escaneado (ver receipts[].purchaseIds).
+   Sirve para no sumarlas de nuevo cuando el gasto ya se toma del total del recibo. */
+function receiptLinkedPurchaseIds(){
+  const set = new Set();
+  receipts.forEach(r=>{ if(Array.isArray(r.purchaseIds)) r.purchaseIds.forEach(id=>set.add(id)); });
+  return set;
 }
+/* El gasto del mes se arma con el monto real de cada recibo (no la suma de los
+   productos que el OCR logró emparejar, que puede quedar corta si algo no se
+   leyó bien) más las compras registradas a mano que no vienen de ningún recibo. */
 function spendForMonth(key){
-  return purchasesForMonth(key).reduce((s,p)=>s+p.totalPrice,0);
+  const linkedIds = receiptLinkedPurchaseIds();
+  const receiptTotal = receipts.filter(r=>monthKey(r.date)===key).reduce((s,r)=>s+(r.total||0),0);
+  const manualTotal = purchases
+    .filter(p=>monthKey(p.date)===key && !linkedIds.has(p.id))
+    .reduce((s,p)=>s+p.totalPrice,0);
+  return receiptTotal + manualTotal;
 }
 
 /* ================= RENDER ================= */
@@ -813,14 +823,6 @@ function stockAnalyticsCard(){
             <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,10)}%;"><span>${r.pct}%</span></div></div>
             <div class="stock-caption">${r.ing.qtyOnHand||0} ${unitLabel(r.ing.unit)} ${t('stock_of')} ${r.target} ${unitLabel(r.ing.unit)}</div>
           </div>
-          ${r.status==='crit' ? `
-          <div class="stock-actions">
-            <div class="stock-actions-label">${t('stock_quick_order')}</div>
-            <div class="stock-actions-btns">
-              <button class="stock-icon-btn cart" title="${t('stock_quick_order')}">🛒</button>
-              <button class="stock-icon-btn whatsapp" title="WhatsApp">💬</button>
-            </div>
-          </div>` : ''}
         </div>
       </div>
     `).join('')}
