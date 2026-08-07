@@ -8,18 +8,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#F6F3FC; --panel:#FFFFFF; --ink:#221D35; --ink-soft:#6B6483; --line:#E6E0F5;
-    /* Paleta "Sunset Vivid": violeta eléctrico de marca + coral, naranja, esmeralda y cian
-       como acentos saturados sobre superficies blancas/lila muy claro (2026: acentos audaces
-       sobre layouts neutros — ver Linear, Figma, Arc). */
-    --navy:#7C3AED; --navy-soft:#9F67F5; --tomato:#FF4667; --saffron:#FF8A3D; --basil:#16C172;
-    --basil-soft:#DCFAE6; --tomato-soft:#FFE1E7; --saffron-soft:#FFE8D3;
-    --radius:14px; --shadow:0 1px 2px rgba(34,29,53,0.08), 0 8px 24px rgba(124,58,237,0.12);
-    --stock-ok:#06B6D4; --stock-warn:#FFB020; --stock-crit:#FF4667;
+    --bg:#F0F2F5; --panel:#FFFFFF; --ink:#1C1E21; --ink-soft:#65676B; --line:#DDDFE2;
+    /* Paleta "WhatsApp + Facebook": azul de Facebook (#1877F2) como color de marca/acciones
+       principales, verde de WhatsApp (#25D366) para lo positivo/saludable — dos colores que
+       todo el mundo reconoce y asocia con confianza, en vez de acentos inventados. */
+    --navy:#1877F2; --navy-soft:#4293F5; --tomato:#E5484D; --saffron:#F5A623; --basil:#25D366;
+    --basil-soft:#E5F9EA; --tomato-soft:#FCE7E7; --saffron-soft:#FDF0DA;
+    --radius:14px; --shadow:0 1px 2px rgba(28,30,33,0.08), 0 8px 24px rgba(28,30,33,0.08);
+    --stock-ok:#25D366; --stock-warn:#F5A623; --stock-crit:#E5484D;
   }
   *{box-sizing:border-box;}
   html{touch-action:manipulation;}
-  body{margin:0;background:radial-gradient(ellipse 900px 560px at 50% -60px, #FF8A3D 0%, #FF4667 30%, #7C3AED 58%, var(--bg) 82%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
+  body{margin:0;background:radial-gradient(ellipse 900px 480px at 50% -60px, #25D366 0%, #1877F2 55%, var(--bg) 85%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
   h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.01em;}
   .mono{font-family:'IBM Plex Mono',monospace;}
   #app{max-width:1180px;margin:0 auto;padding:28px 24px 100px;}
@@ -39,7 +39,7 @@
     width:42px;height:42px;border-radius:11px;
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.14) 0 5px, transparent 5px 10px),
-      linear-gradient(145deg,#FF8A3D,#FF4667 45%,var(--navy));
+      linear-gradient(145deg,var(--navy),var(--basil));
     display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:25px;box-shadow:var(--shadow);
   }
   .brand-name{font-size:20px;font-weight:700;}
@@ -51,11 +51,11 @@
   #btn-alert-settings, #btn-alert-settings:hover{color:var(--ink-soft);border-color:var(--line);}
 
   /* BOTTOM NAV */
-  .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(115deg,#7C3AED,#9F67F5);border-top:1px solid rgba(255,255,255,0.15);display:flex;z-index:40;box-shadow:0 -4px 18px rgba(124,58,237,0.35);padding-bottom:env(safe-area-inset-bottom);}
+  .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(115deg,#1877F2,#25D366);border-top:1px solid rgba(255,255,255,0.15);display:flex;z-index:40;box-shadow:0 -4px 18px rgba(24,119,242,0.3);padding-bottom:env(safe-area-inset-bottom);}
   .bottom-nav-item{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px 8px;color:rgba(255,255,255,0.65);font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;position:relative;font-family:'Inter';transition:color .25s ease;}
   .bottom-nav-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .bottom-nav-item.active{color:#fff;}
-  .bottom-nav-item.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:3px;border-radius:0 0 3px 3px;background:#FFD23F;}
+  .bottom-nav-item.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:3px;border-radius:0 0 3px 3px;background:#DCF8C6;}
   .bottom-nav-item:active{transform:scale(0.95);}
 
   .scan-card{cursor:pointer;}
@@ -65,7 +65,7 @@
   .scan-card:active .scan-fab-mini{transform:scale(0.94);}
   .scan-fab-mini svg{position:relative;z-index:2;width:100%;height:100%;filter:drop-shadow(0 2px 5px rgba(32,33,36,0.25));}
   .scan-fab-ring{
-    position:absolute;inset:0;border-radius:50%;background:rgba(255,70,103,0.38);
+    position:absolute;inset:0;border-radius:50%;background:rgba(229,72,77,0.35);
     animation:fabPulse 1.8s cubic-bezier(0.3,0.6,0.4,1) infinite; z-index:1;
   }
   .scan-fab-ring.delay{animation-delay:.6s;}
@@ -97,7 +97,7 @@
   .btn-icon svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
   .inv-header-actions{display:flex;gap:8px;flex-wrap:wrap;}
 
-  .alert-banner{background:var(--tomato-soft);border:1px solid #FFB8C7;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:#C81E45;font-size:13.5px;font-weight:600;}
+  .alert-banner{background:var(--tomato-soft);border:1px solid #F2C6C8;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:#B02A2F;font-size:13.5px;font-weight:600;}
   .alert-banner .count{background:var(--tomato);color:#fff;border-radius:20px;padding:2px 9px;font-size:12px;}
 
   .table-wrap{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;margin-bottom:26px;}
@@ -121,8 +121,8 @@
 
   /* STOCK ANALYTICS CARD */
   .stock-card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);padding:20px 20px 0;margin-bottom:24px;}
-  .stock-card.stock-card-yellow{background:#FFD23F;}
-  .stock-card.stock-card-yellow .stock-row{background:#FFD23F;}
+  .stock-card.stock-card-yellow{background:#FBE8A6;}
+  .stock-card.stock-card-yellow .stock-row{background:#FBE8A6;}
   .stock-card-title{font-size:15px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-family:'Space Grotesk';margin:0 0 6px;}
   .stock-row-swipe{position:relative;overflow:hidden;border-bottom:1px solid var(--line);}
   .stock-row-swipe:last-child{border-bottom:none;}
@@ -165,7 +165,7 @@
   .dish-card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;}
 
   /* MODAL */
-  .overlay{position:fixed;inset:0;background:rgba(34,29,53,0.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .overlay{position:fixed;inset:0;background:rgba(28,30,33,0.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
   .modal{background:#fff;border-radius:16px;padding:26px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,0.25);max-height:88vh;overflow-y:auto;}
   .modal.wide{max-width:600px;}
   .modal h3{margin:0 0 4px;font-size:18px;}
@@ -202,10 +202,10 @@
   .drop-zone:hover{border-color:var(--navy);}
   .drop-zone .dz-icon{font-size:28px;margin-bottom:6px;}
   .receipt-preview{width:100%;max-height:220px;object-fit:contain;border-radius:10px;margin-bottom:14px;border:1px solid var(--line);}
-  .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:#B8500F;margin-bottom:14px;}
-  .spinner{width:16px;height:16px;border:2.5px solid #FFD3A8;border-top-color:#B8500F;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+  .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:#8A5A1F;margin-bottom:14px;}
+  .spinner{width:16px;height:16px;border:2.5px solid #F5DCC0;border-top-color:#8A5A1F;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
   @keyframes spin{to{transform:rotate(360deg);}}
-  .scan-error{background:var(--tomato-soft);color:#C81E45;padding:12px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;}
+  .scan-error{background:var(--tomato-soft);color:#B02A2F;padding:12px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;}
 
   .matched-item{background:#FAFAF7;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;}
   .matched-item .mi-top{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft);margin-bottom:8px;}
@@ -1120,7 +1120,7 @@ function priceHistoryModal(){
     const first = points[0].unitPrice, last = points[points.length-1].unitPrice;
     const changePct = first>0 ? ((last-first)/first)*100 : 0;
     const up = changePct>3, down = changePct<-3;
-    const color = up?'#C81E45':down?'var(--basil)':'var(--ink-soft)';
+    const color = up?'#B02A2F':down?'var(--basil)':'var(--ink-soft)';
     const bg = up?'var(--tomato-soft)':down?'var(--basil-soft)':'#FAFAF7';
     const arrow = up?'▲':down?'▼':'→';
     const phrase = (up||down)
@@ -1475,7 +1475,7 @@ function scanModal(){
 
       ${scanState==='matched' ? `
         ${scanDuplicateOf ? `
-        <div class="scan-error" style="background:var(--saffron-soft);color:#B8500F;">
+        <div class="scan-error" style="background:var(--saffron-soft);color:#8A5A1F;">
           ⚠ ${uiLang==='en'
             ? `A receipt from <strong>${escapeHtml(scanDuplicateOf.supplier)||'this supplier'}</strong> already exists on ${scanDuplicateOf.date} for a similar total (${money(scanDuplicateOf.total)}). This could be the same receipt scanned twice.`
             : `Ya existe un recibo de <strong>${escapeHtml(scanDuplicateOf.supplier)||'este proveedor'}</strong> el ${scanDuplicateOf.date} por un total similar (${money(scanDuplicateOf.total)}). Podría ser el mismo recibo escaneado dos veces.`}
@@ -1501,7 +1501,7 @@ function scanModal(){
           const sentence = uiLang==='en'
             ? `<strong>${label}</strong> went up in price on this receipt vs. your current cost — review the details below before confirming`
             : `<strong>${label}</strong> subió de precio en este recibo vs. tu costo actual — revisa los detalles abajo antes de confirmar`;
-          return `<div class="scan-error" style="background:var(--tomato-soft);color:#C81E45;">▲ ${sentence}</div>`;
+          return `<div class="scan-error" style="background:var(--tomato-soft);color:#B02A2F;">▲ ${sentence}</div>`;
         })()}
 
         <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin:6px 0 8px;">${t('lbl_detected_products')}</label>
