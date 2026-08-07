@@ -153,6 +153,7 @@
   .stock-summary-right{text-align:right;}
   .stock-suggest-btn{background:var(--stock-ok);color:#fff;border:none;border-radius:20px;padding:9px 18px;font-size:12px;font-weight:700;margin-top:4px;cursor:pointer;}
   .stock-suggest-btn:hover{opacity:.9;}
+  .cc-due-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:var(--tomato);border:2px solid var(--panel);}
 
   /* Tarjetas de recibos (grid con foto de portada), pestaña Recibos */
   .dish-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
@@ -284,6 +285,16 @@ let showAlertSettingsModal = false;
 let showSuggestedOrderModal = false;
 let draftThreshold = priceAlertThreshold;
 
+/* Conteo cíclico: cada X días, recuerda contar a mano un % del inventario, rotando
+   qué productos toca cada vez (cycleCountCursor) para no repetir siempre los mismos. */
+let cycleCountPct = 20;
+let cycleCountIntervalDays = 3;
+let cycleCountLastDate = null; // fecha (YYYY-MM-DD) del último conteo completado, o null si nunca se hizo
+let cycleCountCursor = 0;
+let showCycleCountModal = false;
+let draftCycleCountPct = cycleCountPct;
+let draftCycleCountInterval = cycleCountIntervalDays;
+
 /* Estado del escaneo de recibo */
 let scanState = 'idle'; // idle | preview | loading | matched | error
 let scanImages = []; // [{base64, mediaType}] — una o varias páginas del mismo recibo
@@ -313,6 +324,13 @@ const I18N = {
     stock_suggested_order:'Pedido sugerido:', stock_view_detail:'Ver detalle',
     suggested_order_title:'Pedido sugerido', suggested_order_sub:'Ingredientes en nivel crítico y cuánto haría falta pedir para volver al objetivo.',
     suggested_order_empty:'Por ahora ningún ingrediente está en nivel crítico.', suggested_order_row_note:'Tenés',
+    cc_btn:'Conteo cíclico', cc_title:'Conteo cíclico', cc_sub:'Cada cierto número de días, contás a mano una parte del inventario para mantener los datos al día — cada vez le toca a productos distintos.',
+    cc_due_note:'Toca contar {n} producto(s) hoy. Anotá lo que ves en el estante; lo que dejes en blanco no se modifica.',
+    cc_not_due_note:'Ya estás al día. El próximo conteo te toca el', cc_next_now:'hoy',
+    cc_current:'Tenés registrado', cc_counted_placeholder:'Cantidad contada', cc_save_btn:'Guardar conteo',
+    cc_settings_title:'Configuración del conteo', cc_pct_label:'% del inventario', cc_interval_label:'Cada cuántos días',
+    cc_settings_helper:'Por ejemplo, 20% cada 3 días — así en unas dos semanas ya pasaste por todo el inventario.',
+    cc_banner_text:'📋 Toca para contar {n} producto(s) — conteo cíclico',
     empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer ingrediente para empezar a llevar tu inventario.',
     empty_receipts_title:'Aún no hay recibos guardados', empty_receipts_sub:'Cuando escanees uno desde el botón de escanear, aparecerá aquí con la foto original y los productos detectados.',
     inv_title:'Inventario', inv_sub:'Ingredientes y su costo actual por unidad, para calcular el costo de cada plato',
@@ -379,6 +397,13 @@ const I18N = {
     stock_suggested_order:'Suggested order:', stock_view_detail:'View detail',
     suggested_order_title:'Suggested order', suggested_order_sub:'Ingredients at critical stock level and how much to order to get back to target.',
     suggested_order_empty:'No ingredients are at a critical level right now.', suggested_order_row_note:'You have',
+    cc_btn:'Cycle count', cc_title:'Cycle count', cc_sub:"Every few days, you count a slice of inventory by hand to keep the data fresh — a different set of products each time.",
+    cc_due_note:"{n} product(s) are due for a count today. Fill in what you see on the shelf; anything left blank won't change.",
+    cc_not_due_note:"You're all caught up. Next count is due on", cc_next_now:'today',
+    cc_current:'Currently on record', cc_counted_placeholder:'Counted quantity', cc_save_btn:'Save count',
+    cc_settings_title:'Count settings', cc_pct_label:'% of inventory', cc_interval_label:'Every how many days',
+    cc_settings_helper:"E.g. 20% every 3 days — that way you cycle through the whole inventory in about two weeks.",
+    cc_banner_text:'📋 Tap to count {n} product(s) — cycle count',
     empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first ingredient to start tracking your inventory.',
     empty_receipts_title:'No receipts saved yet', empty_receipts_sub:"Once you scan one from the scan button, it'll show up here with the original photo and the detected products.",
     inv_title:'Inventory', inv_sub:'Ingredients and their current cost per unit, to calculate the cost of each dish',
@@ -448,6 +473,29 @@ function money(n){return '$'+(isNaN(n)?'0.00':n.toFixed(2));}
    esto evita que a alguien en América se le adelante un día al escanear o registrar de noche. */
 function localDateStr(d){ d=d||new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function localMonthStr(d){ d=d||new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function addDaysStr(dateStr, days){
+  const d = new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+days);
+  return localDateStr(d);
+}
+function daysBetweenStr(fromStr, toStr){
+  const a = new Date(fromStr+'T00:00:00'), b = new Date(toStr+'T00:00:00');
+  return Math.round((b-a)/86400000);
+}
+function isCycleCountDue(){
+  if(inventory.length===0) return false;
+  if(!cycleCountLastDate) return true; // nunca se hizo un conteo -> toca ahora
+  return daysBetweenStr(cycleCountLastDate, localDateStr()) >= cycleCountIntervalDays;
+}
+/* Toma el siguiente % del inventario a partir de cycleCountCursor, rotando (con wrap-around)
+   para que cada conteo cíclico caiga sobre productos distintos en vez de repetir los mismos. */
+function cycleCountBatch(){
+  if(inventory.length===0) return [];
+  const n = Math.min(inventory.length, Math.max(1, Math.round(inventory.length*(cycleCountPct/100))));
+  const list = [];
+  for(let i=0;i<n;i++){ list.push(inventory[(cycleCountCursor+i)%inventory.length]); }
+  return list;
+}
 function escapeHtml(str){
   if(str===null||str===undefined) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -467,7 +515,8 @@ const STORAGE_KEY = 'platocost_data_v1';
 function saveState(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      inventory, purchases, receipts, aliasMap, priceAlertThreshold
+      inventory, purchases, receipts, aliasMap, priceAlertThreshold,
+      cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor
     }));
     return true;
   }catch(e){
@@ -490,6 +539,10 @@ function loadState(){
     if(Array.isArray(data.receipts)) receipts = data.receipts;
     if(data.aliasMap && typeof data.aliasMap==='object') aliasMap = data.aliasMap;
     if(typeof data.priceAlertThreshold==='number') priceAlertThreshold = data.priceAlertThreshold;
+    if(typeof data.cycleCountPct==='number') cycleCountPct = data.cycleCountPct;
+    if(typeof data.cycleCountIntervalDays==='number') cycleCountIntervalDays = data.cycleCountIntervalDays;
+    if(typeof data.cycleCountLastDate==='string') cycleCountLastDate = data.cycleCountLastDate;
+    if(typeof data.cycleCountCursor==='number') cycleCountCursor = data.cycleCountCursor;
   }catch(e){
     console.warn('No se pudo leer localStorage', e);
   }
@@ -566,6 +619,7 @@ function render(){
     ${showMonthlySpendModal ? monthlySpendModal() : ''}
     ${showAlertSettingsModal ? alertSettingsModal() : ''}
     ${showSuggestedOrderModal ? suggestedOrderModal() : ''}
+    ${showCycleCountModal ? cycleCountModal() : ''}
     ${bottomNav()}
   `;
   attachEvents();
@@ -869,14 +923,20 @@ function dashboardView(){
 /* ---------- INVENTARIO ---------- */
 function inventarioView(){
   const rows = stockRowsData();
+  const ccDue = isCycleCountDue();
   return `
   <div class="section-head">
     <div><h2>${t('inv_title')}</h2><p>${t('inv_sub')}</p></div>
-    <div style="display:flex;gap:8px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-ghost" id="btn-new-purchase">${t('btn_new_purchase')}</button>
+      <button class="btn btn-ghost" id="btn-cycle-count" style="position:relative;">${t('cc_btn')}${ccDue?'<span class="cc-due-dot"></span>':''}</button>
       <button class="btn btn-primary" id="btn-new-item">${t('btn_new_item')}</button>
     </div>
   </div>
+  ${ccDue && inventory.length>0 ? `
+  <div class="alert-banner" id="cc-banner" style="cursor:pointer;">
+    <span>${t('cc_banner_text').replace('{n}', cycleCountBatch().length)}</span>
+  </div>` : ''}
   ${inventory.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) : `
   <div class="stock-card" style="padding-bottom:6px;">
     ${rows.map(r=>{
@@ -1213,6 +1273,54 @@ function suggestedOrderModal(){
       </div>`}
       <div class="modal-actions">
         <button class="btn btn-primary" id="btn-close-suggested-order">${t('btn_close')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openCycleCountModal(){
+  draftCycleCountPct = cycleCountPct;
+  draftCycleCountInterval = cycleCountIntervalDays;
+  showCycleCountModal = true; render();
+}
+function closeCycleCountModal(){ showCycleCountModal=false; render(); }
+
+function cycleCountModal(){
+  const due = isCycleCountDue();
+  const batch = due ? cycleCountBatch() : [];
+  const nextDueDate = cycleCountLastDate ? addDaysStr(cycleCountLastDate, cycleCountIntervalDays) : t('cc_next_now');
+  return `
+  <div class="overlay" id="cycle-count-overlay">
+    <div class="modal">
+      <h3>${t('cc_title')}</h3>
+      <div class="sub">${t('cc_sub')}</div>
+
+      ${due ? `
+        <div class="helper-note" style="margin-top:-4px;">${t('cc_due_note').replace('{n}', batch.length)}</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+          ${batch.map(i=>`
+            <div class="matched-item" style="cursor:default;">
+              <div class="mi-top"><strong>${escapeHtml(i.name)}</strong><span>${t('cc_current')}: ${i.qtyOnHand||0} ${unitLabel(i.unit)}</span></div>
+              <div class="mi-fields">
+                <input type="number" step="0.01" placeholder="${t('cc_counted_placeholder')}" data-cc-count="${i.id}" style="flex:1;">
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : `
+        <div class="helper-note" style="margin-top:-4px;">${t('cc_not_due_note')} ${nextDueDate}.</div>
+      `}
+
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;">${t('cc_settings_title')}</label>
+      <div class="field-row">
+        <div class="field"><label>${t('cc_pct_label')}</label><input id="cc-pct-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftCycleCountPct)}"></div>
+        <div class="field"><label>${t('cc_interval_label')}</label><input id="cc-interval-input" type="number" min="1" max="90" step="1" value="${escapeHtml(draftCycleCountInterval)}"></div>
+      </div>
+      <div class="helper-note">${t('cc_settings_helper')}</div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-close-cycle-count">${t('btn_cancel')}</button>
+        <button class="btn btn-primary" id="btn-save-cycle-count">${due ? t('cc_save_btn') : t('btn_save')}</button>
       </div>
     </div>
   </div>`;
@@ -2104,6 +2212,39 @@ function attachEvents(){
     suggestedOrderOverlay.addEventListener('mousedown',(e)=>{ if(e.target===suggestedOrderOverlay){ showSuggestedOrderModal=false; render(); } });
     const closeSuggestedBtn=document.getElementById('btn-close-suggested-order');
     if(closeSuggestedBtn) closeSuggestedBtn.onclick=()=>{ showSuggestedOrderModal=false; render(); };
+  }
+
+  const btnCycleCount=document.getElementById('btn-cycle-count');
+  if(btnCycleCount) btnCycleCount.onclick=openCycleCountModal;
+  const ccBanner=document.getElementById('cc-banner');
+  if(ccBanner) ccBanner.onclick=openCycleCountModal;
+  const cycleCountOverlay=document.getElementById('cycle-count-overlay');
+  if(cycleCountOverlay){
+    cycleCountOverlay.addEventListener('mousedown',(e)=>{ if(e.target===cycleCountOverlay) closeCycleCountModal(); });
+    const cancelCcBtn=document.getElementById('btn-close-cycle-count');
+    if(cancelCcBtn) cancelCcBtn.onclick=closeCycleCountModal;
+    const saveCcBtn=document.getElementById('btn-save-cycle-count');
+    if(saveCcBtn) saveCcBtn.onclick=()=>{
+      const pct=parseFloat(document.getElementById('cc-pct-input').value);
+      const interval=parseFloat(document.getElementById('cc-interval-input').value);
+      if(pct>0 && pct<=100) cycleCountPct=pct;
+      if(interval>0) cycleCountIntervalDays=interval;
+
+      if(isCycleCountDue()){
+        const batch=cycleCountBatch();
+        document.querySelectorAll('[data-cc-count]').forEach(inp=>{
+          const val=parseFloat(inp.value);
+          if(!isNaN(val) && val>=0){
+            const ing=inventory.find(i=>i.id===inp.dataset.ccCount);
+            if(ing) ing.qtyOnHand=val;
+          }
+        });
+        cycleCountLastDate=localDateStr();
+        cycleCountCursor=(cycleCountCursor+batch.length)%Math.max(inventory.length,1);
+      }
+      saveState();
+      closeCycleCountModal();
+    };
   }
 
   const btnScanFab=document.getElementById('btn-scan-fab');
