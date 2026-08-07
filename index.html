@@ -115,6 +115,8 @@
 
   /* STOCK ANALYTICS CARD */
   .stock-card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);padding:20px 20px 0;margin-bottom:24px;}
+  .stock-card.stock-card-yellow{background:#F9E29B;}
+  .stock-card.stock-card-yellow .stock-row{background:#F9E29B;}
   .stock-card-title{font-size:15px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-family:'Space Grotesk';margin:0 0 6px;}
   .stock-row-swipe{position:relative;overflow:hidden;border-bottom:1px solid var(--line);}
   .stock-row-swipe:last-child{border-bottom:none;}
@@ -795,7 +797,7 @@ function stockAnalyticsCard(){
   const rows = stockRowsData();
   const criticalCount = rows.filter(r=>r.status==='crit').length;
   return `
-  <div class="stock-card">
+  <div class="stock-card stock-card-yellow">
     <h3 class="stock-card-title">${t('stock_status_title')}</h3>
     ${rows.map(r=>`
       <div class="stock-row-swipe" data-ing-id="${r.ing.id}">
