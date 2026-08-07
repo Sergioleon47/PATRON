@@ -130,9 +130,10 @@
   .stock-row-delete-btn svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .stock-row{display:flex;align-items:center;gap:16px;padding:16px 0;background:var(--panel);position:relative;touch-action:pan-y;user-select:none;}
   .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid var(--stock-ok);background:#fff;overflow:hidden;}
-  .stock-icon-ring svg{width:28px;height:28px;display:block;}
+  .stock-icon-ring svg{width:30px;height:30px;display:block;filter:drop-shadow(0 1px 1.5px rgba(28,30,33,0.18));}
   .stock-icon-ring.warn{border-color:var(--stock-warn);}
   .stock-icon-ring.crit{border-color:var(--stock-crit);}
+  .stock-icon-ring.none{border-color:#C7CAD1;}
   .stock-main{flex:1;min-width:0;}
   .stock-name{font-size:12.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;margin-bottom:6px;}
   .stock-bar-track{background:#E9EAEC;border-radius:20px;height:20px;overflow:hidden;position:relative;}
@@ -142,6 +143,7 @@
   .stock-bar-fill.warn{background:var(--stock-warn);}
   .stock-bar-fill.crit{background:var(--stock-crit);}
   .stock-caption{font-size:11px;color:var(--ink-soft);margin-top:5px;}
+  .stock-caption-muted{font-style:italic;}
   .stock-actions{flex-shrink:0;text-align:center;}
   .stock-actions-btns{display:flex;gap:6px;}
   .stock-icon-btn{width:30px;height:30px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:#fff;transition:transform .2s ease;}
@@ -325,6 +327,7 @@ const I18N = {
     dash_spending_of:'Gasto de', dash_see_all_months:'Ver todos los meses',
     dash_scan_receipt:'Escanear recibo', price_updated:'precio actualizado',
     stock_status_title:'Estado del inventario', stock_of:'de', stock_critical_alerts:'Alertas críticas:',
+    stock_no_data_caption:'Sin compras registradas todavía — no se puede evaluar el stock',
     stock_suggested_order:'Pedido sugerido:', stock_view_detail:'Ver detalle',
     suggested_order_title:'Pedido sugerido', suggested_order_sub:'Ingredientes en nivel crítico y cuánto haría falta pedir para volver al objetivo.',
     suggested_order_empty:'Por ahora ningún ingrediente está en nivel crítico.', suggested_order_row_note:'Tenés',
@@ -400,6 +403,7 @@ const I18N = {
     dash_spending_of:'Spending for', dash_see_all_months:'See all months',
     dash_scan_receipt:'Scan receipt', price_updated:'price updated',
     stock_status_title:'Inventory status', stock_of:'of', stock_critical_alerts:'Critical alerts:',
+    stock_no_data_caption:"No purchases logged yet — can't evaluate stock level",
     stock_suggested_order:'Suggested order:', stock_view_detail:'View detail',
     suggested_order_title:'Suggested order', suggested_order_sub:'Ingredients at critical stock level and how much to order to get back to target.',
     suggested_order_empty:'No ingredients are at a critical level right now.', suggested_order_row_note:'You have',
@@ -848,19 +852,26 @@ const STOCK_ICONS = {
     <path d="M8 16v16l16 8V24z" fill="#9AA0A6"/>
     <path d="M40 16v16l-16 8V24z" fill="#CBD0D6"/>`,
 };
+/* Un brillo suave arriba-a-la-izquierda le da a cualquier ícono plano una sensación
+   de profundidad/pulido (como un ícono de app premium) sin tener que rehacer a mano
+   cada una de las 46 ilustraciones — se agrega una sola vez acá, encima de lo que sea. */
 function stockIconSvg(name){
   const key = stockIconKey(name);
-  return `<svg viewBox="0 0 48 48">${STOCK_ICONS[key] || STOCK_ICONS.box}</svg>`;
+  return `<svg viewBox="0 0 48 48">${STOCK_ICONS[key] || STOCK_ICONS.box}<ellipse cx="17" cy="13" rx="10" ry="6.5" fill="#fff" opacity="0.22"/></svg>`;
 }
 function stockStatus(pct){ return pct>=60 ? 'ok' : pct>=20 ? 'warn' : 'crit'; }
 
 /* stockTarget es un placeholder mientras definimos de dónde sale el "stock objetivo"
-   real (ver conversación pendiente) — por ahora se estima a partir de lo que hay. */
+   real (ver conversación pendiente) — por ahora se estima a partir de lo que hay.
+   Un ingrediente que nunca tuvo una compra registrada y sigue en 0 no es "crítico"
+   de verdad — todavía no hay datos para juzgarlo, así que se marca aparte ('none')
+   en vez de asustar a un usuario nuevo con todo el inventario en rojo desde el día 1. */
 function stockRowsData(){
   return inventory.map(i=>{
+    const hasHistory = (i.qtyOnHand||0)>0 || purchases.some(p=>p.ingId===i.id);
     const target = i.stockTarget || Math.max(Math.round((i.qtyOnHand||0)*1.5), 10);
     const pct = target>0 ? Math.min(100, Math.round(((i.qtyOnHand||0)/target)*100)) : 0;
-    return {ing:i, target, pct, status: stockStatus(pct)};
+    return {ing:i, target, pct, status: hasHistory ? stockStatus(pct) : 'none'};
   });
 }
 
@@ -882,8 +893,13 @@ function stockAnalyticsCard(){
           <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}">${stockIconSvg(r.ing.name)}</div>
           <div class="stock-main">
             <div class="stock-name">${escapeHtml(r.ing.name)} (${unitLabel(r.ing.unit)})</div>
+            ${r.status==='none' ? `
+            <div class="stock-bar-track"></div>
+            <div class="stock-caption stock-caption-muted">${t('stock_no_data_caption')}</div>
+            ` : `
             <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,10)}%;"><span>${r.pct}%</span></div></div>
             <div class="stock-caption">${r.ing.qtyOnHand||0} ${unitLabel(r.ing.unit)} ${t('stock_of')} ${r.target} ${unitLabel(r.ing.unit)}</div>
+            `}
           </div>
         </div>
       </div>
