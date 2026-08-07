@@ -17,7 +17,7 @@
   }
   *{box-sizing:border-box;}
   html{touch-action:manipulation;}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
+  body{margin:0;background:radial-gradient(ellipse 900px 420px at 50% -60px, #FBDCC0 0%, var(--bg) 62%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
   h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.01em;}
   .mono{font-family:'IBM Plex Mono',monospace;}
   #app{max-width:1180px;margin:0 auto;padding:28px 24px 100px;}
@@ -48,7 +48,7 @@
   .lang-toggle:active{transform:scale(0.92);}
 
   /* BOTTOM NAV */
-  .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);display:flex;z-index:40;box-shadow:0 -2px 12px rgba(32,33,36,0.08);padding-bottom:env(safe-area-inset-bottom);}
+  .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:var(--basil-soft);border-top:1px solid var(--line);display:flex;z-index:40;box-shadow:0 -2px 12px rgba(32,33,36,0.08);padding-bottom:env(safe-area-inset-bottom);}
   .bottom-nav-item{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px 8px;color:var(--ink-soft);font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;position:relative;font-family:'Inter';transition:color .25s ease;}
   .bottom-nav-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .bottom-nav-item.active{color:var(--navy);}
@@ -281,6 +281,7 @@ let scanDuplicateConfirmed=false;
 
 let priceAlertThreshold = 15; // % de aumento que dispara la alerta fuerte al escanear — ajustable por el gerente
 let showAlertSettingsModal = false;
+let showSuggestedOrderModal = false;
 let draftThreshold = priceAlertThreshold;
 
 /* Estado del escaneo de recibo */
@@ -310,6 +311,8 @@ const I18N = {
     dash_scan_receipt:'Escanear recibo', price_updated:'precio actualizado',
     stock_status_title:'Estado del inventario', stock_of:'de', stock_critical_alerts:'Alertas críticas:',
     stock_suggested_order:'Pedido sugerido:', stock_view_detail:'Ver detalle', stock_quick_order:'Pedido rápido',
+    suggested_order_title:'Pedido sugerido', suggested_order_sub:'Ingredientes en nivel crítico y cuánto haría falta pedir para volver al objetivo.',
+    suggested_order_empty:'Por ahora ningún ingrediente está en nivel crítico.', suggested_order_row_note:'Tenés',
     empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer ingrediente para empezar a llevar tu inventario.',
     empty_receipts_title:'Aún no hay recibos guardados', empty_receipts_sub:'Cuando escanees uno desde el botón de escanear, aparecerá aquí con la foto original y los productos detectados.',
     inv_title:'Inventario', inv_sub:'Ingredientes y su costo actual por unidad, para calcular el costo de cada plato',
@@ -374,6 +377,8 @@ const I18N = {
     dash_scan_receipt:'Scan receipt', price_updated:'price updated',
     stock_status_title:'Inventory status', stock_of:'of', stock_critical_alerts:'Critical alerts:',
     stock_suggested_order:'Suggested order:', stock_view_detail:'View detail', stock_quick_order:'Quick order',
+    suggested_order_title:'Suggested order', suggested_order_sub:'Ingredients at critical stock level and how much to order to get back to target.',
+    suggested_order_empty:'No ingredients are at a critical level right now.', suggested_order_row_note:'You have',
     empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first ingredient to start tracking your inventory.',
     empty_receipts_title:'No receipts saved yet', empty_receipts_sub:"Once you scan one from the scan button, it'll show up here with the original photo and the detected products.",
     inv_title:'Inventory', inv_sub:'Ingredients and their current cost per unit, to calculate the cost of each dish',
@@ -548,6 +553,7 @@ function render(){
     ${showPriceHistoryModal ? priceHistoryModal() : ''}
     ${showMonthlySpendModal ? monthlySpendModal() : ''}
     ${showAlertSettingsModal ? alertSettingsModal() : ''}
+    ${showSuggestedOrderModal ? suggestedOrderModal() : ''}
     ${bottomNav()}
   `;
   attachEvents();
@@ -823,7 +829,7 @@ function stockAnalyticsCard(){
       </div>
       <div class="stock-summary-right">
         <div class="stock-summary-label">${t('stock_suggested_order')}</div>
-        <button class="btn stock-suggest-btn">${t('stock_view_detail')}</button>
+        <button class="btn stock-suggest-btn" id="btn-suggested-order">${t('stock_view_detail')}</button>
       </div>
     </div>
   </div>
@@ -1175,6 +1181,34 @@ function alertSettingsModal(){
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-alert-settings">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-save-alert-settings">${t('btn_save')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function suggestedOrderModal(){
+  const rows = stockRowsData().filter(r=>r.status==='crit');
+  return `
+  <div class="overlay" id="suggested-order-overlay">
+    <div class="modal">
+      <h3>${t('suggested_order_title')}</h3>
+      <div class="sub">${t('suggested_order_sub')}</div>
+      ${rows.length===0 ? `<div class="helper-note" style="margin:0 0 8px;">${t('suggested_order_empty')}</div>` : `
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;">
+        ${rows.map(r=>{
+          const need = Math.max(r.target - (r.ing.qtyOnHand||0), 0);
+          return `
+          <div class="matched-item" style="cursor:default;">
+            <div class="mi-top">
+              <strong>${escapeHtml(r.ing.name)}</strong>
+              <span>${need} ${unitLabel(r.ing.unit)}</span>
+            </div>
+            <div style="font-size:12px;color:var(--ink-soft);">${t('suggested_order_row_note')} ${r.ing.qtyOnHand||0} ${unitLabel(r.ing.unit)} ${t('stock_of')} ${r.target} ${unitLabel(r.ing.unit)}</div>
+          </div>`;
+        }).join('')}
+      </div>`}
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="btn-close-suggested-order">${t('btn_close')}</button>
       </div>
     </div>
   </div>`;
@@ -2057,6 +2091,15 @@ function attachEvents(){
       saveState();
       showAlertSettingsModal=false; render();
     };
+  }
+
+  const btnSuggestedOrder=document.getElementById('btn-suggested-order');
+  if(btnSuggestedOrder) btnSuggestedOrder.onclick=()=>{ showSuggestedOrderModal=true; render(); };
+  const suggestedOrderOverlay=document.getElementById('suggested-order-overlay');
+  if(suggestedOrderOverlay){
+    suggestedOrderOverlay.addEventListener('mousedown',(e)=>{ if(e.target===suggestedOrderOverlay){ showSuggestedOrderModal=false; render(); } });
+    const closeSuggestedBtn=document.getElementById('btn-close-suggested-order');
+    if(closeSuggestedBtn) closeSuggestedBtn.onclick=()=>{ showSuggestedOrderModal=false; render(); };
   }
 
   const btnScanFab=document.getElementById('btn-scan-fab');
