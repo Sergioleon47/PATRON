@@ -91,6 +91,9 @@
   .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
   .btn-ghost:hover{border-color:var(--navy);}
   .btn-sm{padding:6px 10px;font-size:12px;border-radius:8px;}
+  .btn-icon{display:inline-flex;align-items:center;gap:7px;position:relative;}
+  .btn-icon svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
+  .inv-header-actions{display:flex;gap:8px;flex-wrap:wrap;}
 
   .alert-banner{background:var(--tomato-soft);border:1px solid #EBC2B8;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:#8C3A29;font-size:13.5px;font-weight:600;}
   .alert-banner .count{background:var(--tomato);color:#fff;border-radius:20px;padding:2px 9px;font-size:12px;}
@@ -125,7 +128,7 @@
   .stock-row-delete-btn{width:54px;height:54px;border-radius:50%;border:none;background:rgba(255,255,255,0.16);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-right:14px;transition:background .2s ease,transform .15s ease;}
   .stock-row-delete-btn:active{transform:scale(0.9);background:rgba(255,255,255,0.28);}
   .stock-row-delete-btn svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
-  .stock-row{display:flex;align-items:center;gap:14px;padding:14px 0;background:var(--panel);position:relative;touch-action:pan-y;user-select:none;}
+  .stock-row{display:flex;align-items:center;gap:16px;padding:16px 0;background:var(--panel);position:relative;touch-action:pan-y;user-select:none;}
   .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid var(--stock-ok);background:#fff;overflow:hidden;}
   .stock-icon-ring svg{width:28px;height:28px;display:block;}
   .stock-icon-ring.warn{border-color:var(--stock-warn);}
@@ -145,7 +148,7 @@
   .stock-icon-btn:active{transform:scale(0.9);}
   .stock-icon-btn svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .stock-icon-btn.history{background:#9AA0A6;}
-  .stock-icon-btn.edit{background:var(--stock-ok);}
+  .stock-icon-btn.edit{background:var(--navy);}
   .inv-row-meta{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:2px;}
   .stock-summary{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:6px 0 20px;padding-top:16px;border-top:1px solid var(--line);flex-wrap:wrap;}
   .stock-summary-label{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
@@ -330,7 +333,7 @@ const I18N = {
     cc_current:'Tenés registrado', cc_counted_placeholder:'Cantidad contada', cc_save_btn:'Guardar conteo',
     cc_settings_title:'Configuración del conteo', cc_pct_label:'% del inventario', cc_interval_label:'Cada cuántos días',
     cc_settings_helper:'Por ejemplo, 20% cada 3 días — así en unas dos semanas ya pasaste por todo el inventario.',
-    cc_banner_text:'📋 Toca para contar {n} producto(s) — conteo cíclico',
+    cc_banner_text:'Toca para contar {n} producto(s) — conteo cíclico',
     empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer ingrediente para empezar a llevar tu inventario.',
     empty_receipts_title:'Aún no hay recibos guardados', empty_receipts_sub:'Cuando escanees uno desde el botón de escanear, aparecerá aquí con la foto original y los productos detectados.',
     inv_title:'Inventario', inv_sub:'Ingredientes y su costo actual por unidad, para calcular el costo de cada plato',
@@ -403,7 +406,7 @@ const I18N = {
     cc_current:'Currently on record', cc_counted_placeholder:'Counted quantity', cc_save_btn:'Save count',
     cc_settings_title:'Count settings', cc_pct_label:'% of inventory', cc_interval_label:'Every how many days',
     cc_settings_helper:"E.g. 20% every 3 days — that way you cycle through the whole inventory in about two weeks.",
-    cc_banner_text:'📋 Tap to count {n} product(s) — cycle count',
+    cc_banner_text:'Tap to count {n} product(s) — cycle count',
     empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first ingredient to start tracking your inventory.',
     empty_receipts_title:'No receipts saved yet', empty_receipts_sub:"Once you scan one from the scan button, it'll show up here with the original photo and the detected products.",
     inv_title:'Inventory', inv_sub:'Ingredients and their current cost per unit, to calculate the cost of each dish',
@@ -927,14 +930,24 @@ function inventarioView(){
   return `
   <div class="section-head">
     <div><h2>${t('inv_title')}</h2><p>${t('inv_sub')}</p></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn btn-ghost" id="btn-new-purchase">${t('btn_new_purchase')}</button>
-      <button class="btn btn-ghost" id="btn-cycle-count" style="position:relative;">${t('cc_btn')}${ccDue?'<span class="cc-due-dot"></span>':''}</button>
-      <button class="btn btn-primary" id="btn-new-item">${t('btn_new_item')}</button>
+    <div class="inv-header-actions">
+      <button class="btn btn-ghost btn-icon" id="btn-cycle-count">
+        <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        ${t('cc_btn')}${ccDue?'<span class="cc-due-dot"></span>':''}
+      </button>
+      <button class="btn btn-ghost btn-icon" id="btn-new-purchase">
+        <svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
+        ${t('btn_new_purchase')}
+      </button>
+      <button class="btn btn-primary btn-icon" id="btn-new-item">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        ${t('btn_new_item')}
+      </button>
     </div>
   </div>
   ${ccDue && inventory.length>0 ? `
   <div class="alert-banner" id="cc-banner" style="cursor:pointer;">
+    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg>
     <span>${t('cc_banner_text').replace('{n}', cycleCountBatch().length)}</span>
   </div>` : ''}
   ${inventory.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) : `
