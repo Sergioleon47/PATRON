@@ -131,6 +131,7 @@
   .stock-row{display:flex;align-items:center;gap:16px;padding:16px 0;background:var(--panel);position:relative;touch-action:pan-y;user-select:none;}
   .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid var(--stock-ok);background:#fff;overflow:hidden;}
   .stock-icon-ring svg{width:30px;height:30px;display:block;filter:drop-shadow(0 1px 1.5px rgba(28,30,33,0.18));}
+  .stock-icon-ring img{width:100%;height:100%;object-fit:cover;display:block;}
   .stock-icon-ring.warn{border-color:var(--stock-warn);}
   .stock-icon-ring.crit{border-color:var(--stock-crit);}
   .stock-icon-ring.none{border-color:#C7CAD1;}
@@ -852,11 +853,31 @@ const STOCK_ICONS = {
     <path d="M8 16v16l16 8V24z" fill="#9AA0A6"/>
     <path d="M40 16v16l-16 8V24z" fill="#CBD0D6"/>`,
 };
+
+/* EXPERIMENTO: fotos reales (Wikimedia Commons, de libre uso) para las categorías más
+   comunes, en vez del ícono plano dibujado a mano — para comparar cómo se ven. Necesitan
+   internet para cargar (a diferencia de los SVG, que son parte del archivo); si no cargan
+   (sin señal), el círculo simplemente se queda vacío en vez de mostrar un ícono roto. */
+const PRODUCT_PHOTOS = {
+  chicken: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Close-up_of_the_chicken_breast_on_a_cutting_board.jpg/150px-Close-up_of_the_chicken_breast_on_a_cutting_board.jpg',
+  shrimp: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/DFC_3959_A_heap_of_fresh_raw_shrimp_piled_together_glistening_with_moisture_and_ready_for_cleaning_or_cooking.jpg/150px-DFC_3959_A_heap_of_fresh_raw_shrimp_piled_together_glistening_with_moisture_and_ready_for_cleaning_or_cooking.jpg',
+  cheese: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/2021-06-22_15_54_33_A_ball_of_Bel_Gioioso_Fresh_Mozzarella_cheese_in_the_Franklin_Farm_section_of_Oak_Hill%2C_Fairfax_County%2C_Virginia.jpg/150px-2021-06-22_15_54_33_A_ball_of_Bel_Gioioso_Fresh_Mozzarella_cheese_in_the_Franklin_Farm_section_of_Oak_Hill%2C_Fairfax_County%2C_Virginia.jpg',
+  tomato: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Fresh_Tomato_in_the_market_for_sale_04.jpg/150px-Fresh_Tomato_in_the_market_for_sale_04.jpg',
+  oil: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Olive_oil_bottle_Bertolli_Riserva_Premium.jpg/150px-Olive_oil_bottle_Bertolli_Riserva_Premium.jpg',
+  flour: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/All-Purpose_Flour_%284107895947%29.jpg/150px-All-Purpose_Flour_%284107895947%29.jpg',
+  tortilla: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Corn_tortilla%2C_medium_flour_tortilla%2C_and_large_flour_tortilla%2C_stacked.jpg/150px-Corn_tortilla%2C_medium_flour_tortilla%2C_and_large_flour_tortilla%2C_stacked.jpg',
+  avocado: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Avocado_-_single_and_halved.jpg/150px-Avocado_-_single_and_halved.jpg',
+};
+
 /* Un brillo suave arriba-a-la-izquierda le da a cualquier ícono plano una sensación
    de profundidad/pulido (como un ícono de app premium) sin tener que rehacer a mano
    cada una de las 46 ilustraciones — se agrega una sola vez acá, encima de lo que sea. */
 function stockIconSvg(name){
   const key = stockIconKey(name);
+  const photo = PRODUCT_PHOTOS[key];
+  if(photo){
+    return `<img src="${photo}" alt="" loading="lazy" onerror="this.style.display='none'">`;
+  }
   return `<svg viewBox="0 0 48 48">${STOCK_ICONS[key] || STOCK_ICONS.box}<ellipse cx="17" cy="13" rx="10" ry="6.5" fill="#fff" opacity="0.22"/></svg>`;
 }
 function stockStatus(pct){ return pct>=60 ? 'ok' : pct>=20 ? 'warn' : 'crit'; }
